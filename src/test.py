@@ -33,6 +33,8 @@ from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
+from Node import Node, Connection, a_star
+
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
 DEFAULT_PHYSICS = Physics("pyb")
@@ -66,19 +68,139 @@ def run(
     H = .1
     H_STEP = .05
     R = .3
-    INIT_XYZS = np.array([[R*np.cos((i/6)*2*np.pi+np.pi/2), R*np.sin((i/6)*2*np.pi+np.pi/2)-R, H+i*H_STEP] for i in range(num_drones)])
+    # INIT_XYZS = np.array([[R*np.cos((i/6)*2*np.pi+np.pi/2), R*np.sin((i/6)*2*np.pi+np.pi/2)-R, H+i*H_STEP] for i in range(num_drones)])
+    INIT_XYZS = np.array([[0, 0, 1 + i] for i in range(num_drones)])
     INIT_RPYS = np.array([[0, 0,  i * (np.pi/2)/num_drones] for i in range(num_drones)])
+
+    """ Initialize a graph with 1 node per 1 unit of space """
+    # Nodes per unit distance
+    graph_resolution = 1
+
+    # Define graph boundaries
+    graph_min_X = -10
+    graph_min_Y = -10
+    graph_min_Z = 0
+    graph_max_X = 10
+    graph_max_Y = 10
+    graph_max_Z = 20
+
+    # Calculate the dimensions of the graph
+    X_nodes = round(abs(graph_min_X) + abs(graph_max_X) / graph_resolution)
+    Y_nodes = round(abs(graph_min_Y) + abs(graph_max_Y) / graph_resolution)
+    Z_nodes = round(abs(graph_min_Z) + abs(graph_max_Z) / graph_resolution)
+
+
+    # Initialize graph
+    graph = np.empty((X_nodes, Y_nodes, Z_nodes), dtype=object)
+
+    # Initialize nodes
+    for x in range(X_nodes):
+        for y in range(Y_nodes):
+            for z in range(Z_nodes):
+                x_coordinate = graph_min_X + x * graph_resolution
+                y_coordinate = graph_min_Y + y * graph_resolution
+                z_coordinate = graph_min_Z + z * graph_resolution
+                position = (x_coordinate, y_coordinate, z_coordinate)
+                graph[x][y][z] = Node(data=position)
+
+    # Initialize connections between nodes. This must be done after initializing all
+    # nodes since a connection requires all nodes to exist
+    # NOTE: This code is disgusting and I should write a Graph class to handle all this in a way cleaner way, but for now here it is
+    for x in range(X_nodes):
+        for y in range(Y_nodes):
+            for z in range(Z_nodes):
+                node = graph[x][y][z]
+
+                # loop over the neighbouring nodes, respecting graph boundaries and ignoring the current node
+                for local_x in range(max(x-1, 0), min(x+2, X_nodes)):
+                    for local_y in range(max(y-1, 0), min(y+2, Y_nodes)):
+                        for local_z in range(max(z-1, 0), min(z+2, Z_nodes)):
+                            if (local_x == x and local_y == y and local_z == z):
+                                # Ignore the current node
+                                continue
+                            # Get the length of the vector between the two points
+                            distance = np.linalg.norm(np.array((local_x - x, local_y - y, local_z - z))) * graph_resolution
+                            node.add_connection(graph[local_x][local_y][local_z], distance, bidirectional=True)
+
+    def node_from_coordinates(x, y, z):
+        """ Given a set of x, y, z coordinates, extract the node from the graph
+
+        NOTE: Nesting functions like this is legitimately disgusting, and this needs to be seriously cleaned up.
+            Seriously, this is horrible. I will write a Graph class to encapuslate all this behavior in a much
+            better way at a later date.
+            - Robert
+        """
+
+        # Check that coordinates are in valid region
+        if x > graph_max_X or y > graph_max_Y or z > graph_max_Z \
+            or x < graph_min_X or y < graph_min_Y or z < graph_min_Z:
+            print("Coordinates outside bounds")
+            return
+
+        x_index = round((x - graph_min_X) / graph_resolution)
+        y_index = round((y - graph_min_Y) / graph_resolution)
+        z_index = round((z - graph_min_Z) / graph_resolution)
+
+        return (graph[x_index][y_index][z_index])
+
+
+    # NOTE FROM ROB: Each line here adds a node to the path. Make sure it lines up correctly with the end of the previous one.
+    path_1 = a_star(graph.flatten().tolist(), node_from_coordinates(0, 0, 1).id, node_from_coordinates(1, 0, 1).id, dijkstra=True)
+    path_2 = a_star(graph.flatten().tolist(), node_from_coordinates(1, 0, 1).id, node_from_coordinates(0, 1, 1).id, dijkstra=True)
+    path_3 = a_star(graph.flatten().tolist(), node_from_coordinates(0, 1, 1).id, node_from_coordinates(0, 0, 1).id, dijkstra=True)
+
+    # print(connection for connection in node_from_coordinates(0, 0, 1).connections.values())
+    print(list(connection.node.data for connection in node_from_coordinates(0, 0, 1).connections.values()))
+
+
+    test_path = path_1[0] + path_2[0][1:] + path_3[0][1:]
+    test_path_length = path_1[1] + path_2[1] + path_3[1]
+
+    # total_path = (path_1[0].append(path_2[0]).append(path_3[0]), path_1[1] + path_2[1] + path_3[1])
+
+
+    # print(total_path)
+    for node in test_path:
+        print(node.data)
+    print(test_path_length)
+
+
+    """ TODO: Fix this horrible, horrible code I have written
+    - Create a graph class to encapsulate nodes in 3D space, maybe CartesianGraph? Storing their coordinates in the 
+        data field of a node feels messy.
+        - Probably modify the Node class as well to have a position
+    - Improve path generation from list of nodes, there are duplicate values when it switches from one node to another
+    - Add ability to calculate A* heuristics for nodes dynamically based on current target node 
+        - This should be part of CartesianGraph
+    """
+
+
 
     #### Initialize a linear trajectory ######################
     PERIOD = 10
     NUM_WP = control_freq_hz*PERIOD
-    TARGET_POS = np.zeros((NUM_WP,3))
-    for i in range(NUM_WP):
+    # TARGET_POS = np.zeros((NUM_WP,3))
+    TARGET_POS = np.empty((0,3))
+
+    num_wp_per_edge = round(NUM_WP / len(test_path) - 1)
+    # Generate all control points in the path
+    for i in range(len(test_path) - 1):
+        start = test_path[i].data
+        end = test_path[i+1].data
+        x_points = np.linspace(start[0], end[0], num_wp_per_edge)
+        y_points = np.linspace(start[1], end[1], num_wp_per_edge)
+        z_points = np.linspace(start[2], end[2], num_wp_per_edge)
+        points = np.vstack((x_points, y_points, z_points)).T
+        TARGET_POS = np.concatenate((TARGET_POS, points), axis=0)
+
+
+
+    # for i in range(NUM_WP):
         # Original line, initializes a circular trajectory
         # TARGET_POS[i, :] = R*np.cos((i/NUM_WP)*(2*np.pi)+np.pi/2)+INIT_XYZS[0, 0], R*np.sin((i/NUM_WP)*(2*np.pi)+np.pi/2)-R+INIT_XYZS[0, 1], 0
 
         # Replaced with linear trajectory
-        TARGET_POS[i, :] = R*(i/NUM_WP)*5+INIT_XYZS[0, 0], R*(i/NUM_WP)*5+INIT_XYZS[0, 1], 0
+        # TARGET_POS[i, :] = R*(i/NUM_WP)*5+INIT_XYZS[0, 0], R*(i/NUM_WP)*5+INIT_XYZS[0, 1], 0
     wp_counters = np.array([int((i*NUM_WP/6)%NUM_WP) for i in range(num_drones)])
 
     #### Debug trajectory ######################################
