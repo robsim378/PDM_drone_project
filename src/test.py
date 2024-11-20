@@ -33,7 +33,8 @@ from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
-from Node import Node, Connection, a_star
+from CartesianGraph import CartesianGraph
+from Node import Node, Connection
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
@@ -77,12 +78,12 @@ def run(
     graph_resolution = 1
 
     # Define graph boundaries
-    graph_min_X = -10
-    graph_min_Y = -10
+    graph_min_X = -2
+    graph_min_Y = -22
     graph_min_Z = 0
-    graph_max_X = 10
-    graph_max_Y = 10
-    graph_max_Z = 20
+    graph_max_X = 2
+    graph_max_Y = 2
+    graph_max_Z = 4
 
     # Calculate the dimensions of the graph
     X_nodes = round(abs(graph_min_X) + abs(graph_max_X) / graph_resolution)
@@ -90,10 +91,10 @@ def run(
     Z_nodes = round(abs(graph_min_Z) + abs(graph_max_Z) / graph_resolution)
 
 
-    # Initialize graph
-    graph = np.empty((X_nodes, Y_nodes, Z_nodes), dtype=object)
+    graph = CartesianGraph()
+    connection_radius = 1.8
 
-    # Initialize nodes
+    # Initialize graph
     for x in range(X_nodes):
         for y in range(Y_nodes):
             for z in range(Z_nodes):
@@ -101,79 +102,27 @@ def run(
                 y_coordinate = graph_min_Y + y * graph_resolution
                 z_coordinate = graph_min_Z + z * graph_resolution
                 position = (x_coordinate, y_coordinate, z_coordinate)
-                graph[x][y][z] = Node(data=position)
+                graph.add_node(Node(data=position))
 
-    # Initialize connections between nodes. This must be done after initializing all
-    # nodes since a connection requires all nodes to exist
-    # NOTE: This code is disgusting and I should write a Graph class to handle all this in a way cleaner way, but for now here it is
-    for x in range(X_nodes):
-        for y in range(Y_nodes):
-            for z in range(Z_nodes):
-                node = graph[x][y][z]
+    # Add connections to all neighbours in range for all nodes in graph
+    for node in graph.nodes.values():
+        neighbours = graph.get_neighbours(node.id, connection_radius)
+        for neighbour in neighbours:
+            node.add_connection(graph.nodes[neighbour], graph.distance_between_nodes(node.id, neighbour))
+            
+    # Initialize the waypoints along the path
+    point_1 = graph.get_node_from_coordinates((0, 0, 1))
+    point_2 = graph.get_node_from_coordinates((1.1, 0, 1))
+    point_3 = graph.get_node_from_coordinates((0, 1, 1))
+    point_4 = graph.get_node_from_coordinates((0, 0, 1))
 
-                # loop over the neighbouring nodes, respecting graph boundaries and ignoring the current node
-                for local_x in range(max(x-1, 0), min(x+2, X_nodes)):
-                    for local_y in range(max(y-1, 0), min(y+2, Y_nodes)):
-                        for local_z in range(max(z-1, 0), min(z+2, Z_nodes)):
-                            if (local_x == x and local_y == y and local_z == z):
-                                # Ignore the current node
-                                continue
-                            # Get the length of the vector between the two points
-                            distance = np.linalg.norm(np.array((local_x - x, local_y - y, local_z - z))) * graph_resolution
-                            node.add_connection(graph[local_x][local_y][local_z], distance, bidirectional=True)
-
-    def node_from_coordinates(x, y, z):
-        """ Given a set of x, y, z coordinates, extract the node from the graph
-
-        NOTE: Nesting functions like this is legitimately disgusting, and this needs to be seriously cleaned up.
-            Seriously, this is horrible. I will write a Graph class to encapuslate all this behavior in a much
-            better way at a later date.
-            - Robert
-        """
-
-        # Check that coordinates are in valid region
-        if x > graph_max_X or y > graph_max_Y or z > graph_max_Z \
-            or x < graph_min_X or y < graph_min_Y or z < graph_min_Z:
-            print("Coordinates outside bounds")
-            return
-
-        x_index = round((x - graph_min_X) / graph_resolution)
-        y_index = round((y - graph_min_Y) / graph_resolution)
-        z_index = round((z - graph_min_Z) / graph_resolution)
-
-        return (graph[x_index][y_index][z_index])
-
-
-    # NOTE FROM ROB: Each line here adds a node to the path. Make sure it lines up correctly with the end of the previous one.
-    path_1 = a_star(graph.flatten().tolist(), node_from_coordinates(0, 0, 1).id, node_from_coordinates(1, 0, 1).id, dijkstra=True)
-    path_2 = a_star(graph.flatten().tolist(), node_from_coordinates(1, 0, 1).id, node_from_coordinates(0, 1, 1).id, dijkstra=True)
-    path_3 = a_star(graph.flatten().tolist(), node_from_coordinates(0, 1, 1).id, node_from_coordinates(0, 0, 1).id, dijkstra=True)
-
-    # print(connection for connection in node_from_coordinates(0, 0, 1).connections.values())
-    print(list(connection.node.data for connection in node_from_coordinates(0, 0, 1).connections.values()))
-
+    # Generate path through each waypoint
+    path_1 = graph.a_star(point_1, point_2)
+    path_2 = graph.a_star(point_2, point_3)
+    path_3 = graph.a_star(point_3, point_4)
 
     test_path = path_1[0] + path_2[0][1:] + path_3[0][1:]
     test_path_length = path_1[1] + path_2[1] + path_3[1]
-
-    # total_path = (path_1[0].append(path_2[0]).append(path_3[0]), path_1[1] + path_2[1] + path_3[1])
-
-
-    # print(total_path)
-    for node in test_path:
-        print(node.data)
-    print(test_path_length)
-
-
-    """ TODO: Fix this horrible, horrible code I have written
-    - Create a graph class to encapsulate nodes in 3D space, maybe CartesianGraph? Storing their coordinates in the 
-        data field of a node feels messy.
-        - Probably modify the Node class as well to have a position
-    - Improve path generation from list of nodes, there are duplicate values when it switches from one node to another
-    - Add ability to calculate A* heuristics for nodes dynamically based on current target node 
-        - This should be part of CartesianGraph
-    """
-
 
 
     #### Initialize a linear trajectory ######################
