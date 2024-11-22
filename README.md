@@ -4,6 +4,30 @@
 2. In a separate directory from this project, clone [gym-pybullet-drones](https://github.com/utiasDSL/gym-pybullet-drones) and follow the installation instructions there.
 3. Clone this repository
 
+In the end, your directory structure should look something like this:
+```
+.
+├── gym-pybullet-drones
+│   ├── build_project.sh
+│   ├── CITATION.cff
+│   ├── gym_pybullet_drones
+│   ├── LICENSE
+│   ├── pypi_description.md
+│   ├── pyproject.toml
+│   ├── README.md
+│   └── tests
+├── PDM_drone_project
+│   ├── README.md
+│   └── src
+│       ├── CartesianGraph.py
+│       ├── Graph.py
+│       ├── __init__.py
+│       ├── Node.py
+│       ├── __pycache__
+│       ├── results
+│       └── test.py
+```
+
 If successful, you should be able to run the following commands:
 ```bash
 cd src
