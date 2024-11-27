@@ -91,8 +91,8 @@ def run(
     Z_nodes = round(abs(graph_min_Z) + abs(graph_max_Z) / graph_resolution)
 
 
-    graph = CartesianGraph()
     connection_radius = 1.8
+    nodes = []
 
     # Initialize graph
     for x in range(X_nodes):
@@ -102,7 +102,9 @@ def run(
                 y_coordinate = graph_min_Y + y * graph_resolution
                 z_coordinate = graph_min_Z + z * graph_resolution
                 position = (x_coordinate, y_coordinate, z_coordinate)
-                graph.add_node(Node(data=position))
+                nodes.append(Node(data=position))
+
+    graph = CartesianGraph(nodes)
 
     # Add connections to all neighbours in range for all nodes in graph
     for node in graph.nodes.values():
