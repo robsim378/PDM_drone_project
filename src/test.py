@@ -79,7 +79,7 @@ def run(
 
     # Define graph boundaries
     graph_min_X = -2
-    graph_min_Y = -22
+    graph_min_Y = -2
     graph_min_Z = 0
     graph_max_X = 2
     graph_max_Y = 2
@@ -223,6 +223,7 @@ def run(
                                                                     # target_pos=INIT_XYZS[j, :] + TARGET_POS[wp_counters[j], :],
                                                                     target_rpy=INIT_RPYS[j, :]
                                                                     )
+            print(action[j, :])
 
         #### Go to the next way point and loop #####################
         for j in range(num_drones):
