@@ -1,6 +1,6 @@
 import numpy as np
-from Graph import Graph
-from Node import Node
+from src.planning.Graph import Graph
+from src.planning.Node import Node
 
 class CartesianGraph(Graph):
     """ Class representing a graph where nodes are points in Cartesian space. """

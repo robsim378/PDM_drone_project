@@ -33,8 +33,8 @@ from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
-from CartesianGraph import CartesianGraph
-from Node import Node, Connection
+from src.planning.CartesianGraph import CartesianGraph
+from src.planning.Node import Node, Connection
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
@@ -249,12 +249,12 @@ def run(
     env.close()
 
     #### Save the simulation results ###########################
-    logger.save()
-    logger.save_as_csv("pid") # Optional CSV save
+    # logger.save()
+    # logger.save_as_csv("pid") # Optional CSV save
 
     #### Plot the simulation results ###########################
-    if plot:
-        logger.plot()
+    # if plot:
+    #     logger.plot()
 
 if __name__ == "__main__":
     #### Define and parse (optional) arguments for the script ##

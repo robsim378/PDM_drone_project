@@ -1,5 +1,5 @@
 import heapq
-from Node import Node, Connection
+from src.planning.Node import Node
 
 class Graph:
     """ Class representing a graph. """

@@ -18,8 +18,8 @@ from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
-from CartesianGraph import CartesianGraph
-from Node import Node, Connection
+from src.planning.CartesianGraph import CartesianGraph
+from src.planning.Node import Node, Connection
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1

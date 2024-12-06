@@ -7,35 +7,61 @@
 In the end, your directory structure should look something like this:
 ```
 .
-├── gym-pybullet-drones
-│   ├── build_project.sh
-│   ├── CITATION.cff
-│   ├── gym_pybullet_drones
-│   ├── LICENSE
-│   ├── pypi_description.md
-│   ├── pyproject.toml
-│   ├── README.md
-│   └── tests
-├── PDM_drone_project
-│   ├── README.md
-│   └── src
-│       ├── CartesianGraph.py
-│       ├── Graph.py
-│       ├── __init__.py
-│       ├── Node.py
-│       ├── __pycache__
-│       ├── results
-│       └── test.py
+├── demos
+│   ├── test2.py
+│   └── test.py
+├── README.md
+├── requirements.txt
+├── setup.sh
+└── src
+    ├── drone
+    │   ├── Drone.py
+    │   ├── DroneState.py
+    │   ├── DynamicalModel.py
+    │   └── __init__.py
+    ├── environment
+    │   ├── Environment.py
+    │   ├── __init__.py
+    │   ├── Obstacle.py
+    │   ├── RectangularPrism.py
+    │   ├── Shape.py
+    │   └── Sphere.py
+    ├── __init__.py
+    ├── planning
+    │   ├── CartesianGraph.py
+    │   ├── GlobalPlanner.py
+    │   ├── Graph.py
+    │   ├── __init__.py
+    │   ├── MPC.py
+    │   ├── Node.py
 ```
+
+Every time you work on this project in a new shell, you must run the command `source setup.sh` to configure your environment for working on it.
 
 If successful, you should be able to run the following commands:
 ```bash
-cd src
-python3 test.py
+cd 
+python3 demos/test.py
 ```
 This should bring up a simulator with a single drone flying between three waypoints.
 
 
+
+
+
+
+# Everything below this point is some notes I took while investigating the environment and setting up the project structure. We'll go over them when we meet next.
+
+
+
+
+
+
+# Notes on architecture
+- I don't know if DynamicalModel should actually have a nextState function, there may not be any use for it at all
+- Instead of an np array for pose, we could use the Frame class from dynamics and control
+- Current plan for collision detection works on points, but if we can add collision detection between two shapes that would be even better
+- Probably should change Sphere to Ellipsoid, or at least add Ellipsoid as a class.
 
 # Notes on environment
 - BaseAviary is the base environment, the PID demo (and our test.py) uses its subclass CtrlAviary.
