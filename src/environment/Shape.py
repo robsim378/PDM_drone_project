@@ -5,16 +5,17 @@ class Shape(ABC):
     """ Abstract class representing a 3D shape. """
 
     @abstractmethod
-    def checkCollision(self, position):
-        """ Checks if a certain point is within the bounds of this shape.
+    def getCollisionConstraints(self, relative_pos):
+        """ Computes and returns the cvxpy constraints for a Shape 
 
         Parameters
         ----------
-        ndarray(3,) position :
-            The position to check for a collision in
+        ndarray(3,) relative_pos :
+            The position to check for a collision in, relative to the centre of the Shape.
 
         Returns
         -------
-        bool : True if the space is occupied, false if it is free.
+        list of cvxpy Constraints : 
+            The list of constraints defining collision with this shape.
         """
         pass

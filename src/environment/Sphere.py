@@ -14,7 +14,7 @@ class Sphere(Shape):
         """
         self.radius = radius
 
-    def checkCollision(self, position):
+    def checkCollision(self, relative_pos):
         """ For more details, see the docstring in Shape for this function. """
 
         raise NotImplementedError("This hasn't been implemented yet.")
