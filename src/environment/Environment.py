@@ -35,6 +35,7 @@ class Environment():
         float[3] rotation :
             The euler angles defining the orientation of the obstacle
         """
+        # NOTE: Maybe just take a Shape object and include the URDF file as part of that? Would probably be easier than determining shape from URDF
 
         # TODO: Figure out if position and rotation have to be lists or if ndarrays are acceptable as well
         p.loadURDF(urdf, position, rotation, physicsClientId=self.pyb_client_id)
