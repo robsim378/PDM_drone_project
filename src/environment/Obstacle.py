@@ -28,13 +28,15 @@ class Obstacle():
         else:
             self.trajectory = trajectory
 
-    def checkCollision(self, global_pos, time=0):
+    def checkCollision(self, global_pos, inflationAmount, time=0):
         """ Checks if the obstacle will occupy a certain position at the specified time.
 
         Parameters
         ----------
         ndarray(3,) global_position :
             The position to check for a collision in, relative to the environment
+        float inflationAmount :
+            The amount to inflate the object by in all directions. Creates a safety buffer.
         float time :
             The time to check for a collision at. For static obstacles, leave this unset.
 

@@ -5,13 +5,15 @@ class Shape(ABC):
     """ Abstract class representing a 3D shape. """
 
     @abstractmethod
-    def getCollisionConstraints(self, relative_pos):
+    def getCollisionConstraints(self, relative_pos, inflationAmount):
         """ Computes and returns the cvxpy constraints for a Shape 
 
         Parameters
         ----------
         ndarray(3,) relative_pos :
             The position to check for a collision in, relative to the centre of the Shape.
+        float inflationAmount :
+            The amount to inflate the object by in all directions. Creates a safety buffer.
 
         Returns
         -------

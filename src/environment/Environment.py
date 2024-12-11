@@ -44,13 +44,15 @@ class Environment():
         # TODO: Add to the internal list of Obstacles
 
 
-    def checkCollision(self, position):
+    def checkCollision(self, position, inflationAmount):
         """ Checks if the requested space is occupied.
 
         Parameters
         ----------
         ndarray(3,) position :
             The position to check for a collision
+        float inflationAmount :
+            The amount to inflate the object by in all directions. Creates a safety buffer.
 
         Returns
         -------
