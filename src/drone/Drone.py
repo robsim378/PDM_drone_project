@@ -46,8 +46,8 @@ class Drone():
         Parameters
         ----------
         ndarray(4,) :
-            The input to the system. This consists of RPMs for each motor, going 
-            clockwise from the rear-right motor.
+            The control input to the system for this timestep. 
+            Format: [thrust, torque_roll, torque_pitch, torque_yaw]
         """
 
         # NOTE: Don't use the dynamical model to caluclate the state, but

@@ -41,5 +41,11 @@ class MPC():
             The current state of the drone.
         DroneState targetState :
             The target state of the drone.
+
+        Returns
+        -------
+        ndarray(4,) :
+            The control input to the system for this timestep. 
+            Format: [thrust, torque_roll, torque_pitch, torque_yaw]
         """
         pass

@@ -8,12 +8,12 @@ class DroneState():
 
         Parameters
         ----------
-        ndarray(6,) pose :
+        ndarray(4,) pose :
             The current position and orientation of the drone, 
-            in the format [x, y, z, r, p, y]
-        ndarray(6,) velocity :
+            in the format [x, y, z, yaw]
+        ndarray(4,) velocity :
             The current velocity, both translational and rotational, of the drone,
-            in the format [v_x, v_y, v_z, v_rot_x, v_rot_y, v_rot_z]
+            in the format [v_x, v_y, v_z, v_yaw]
         ndarray(4,) RPMs :
             The current RPM of each motor, going clockwise from the rear right motor.
         """
@@ -37,11 +37,24 @@ class DroneState():
 
         Returns
         -------
-        float (tentatively) : 
-            The distance between the two states.
+        (float, float) :
+            Positional and rotational errors
         """
-
-        # NOTE: We probably need to discuss what we want this to output. I think float
-        # is probably reasonable, although we could also do a (float, float) tuple and 
-        # separate positional and rotational errors. RPMs should probably be ignored here.
         pass
+
+    def inputToRPMs(self, input):
+        """ Converts system input into RPMs for use in PyBullet
+
+        Parameters
+        ----------
+        ndarray(4,) input :
+            The control input to the system for this timestep. 
+            Format: [thrust, torque_roll, torque_pitch, torque_yaw]
+
+        Returns
+        -------
+        ndarray(4,) :
+            The RPM of each rotor, going clockwise starting from the rear right rotor.
+        """
+        pass
+

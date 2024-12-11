@@ -1,4 +1,5 @@
 import numpy as np
+import cvxpy
 import pybullet as p
 
 from src.environment.Obstacle import Obstacle
@@ -53,7 +54,8 @@ class Environment():
 
         Returns
         -------
-        bool : True if the space is occupied, false if it is free.
+        list of cvxpy constraints :
+            Inequality constraints for collisions with all obstacles.
         """
 
         # Loop through all obstacles and check if there is a collision with any of them.

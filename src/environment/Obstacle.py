@@ -34,7 +34,7 @@ class Obstacle():
         Parameters
         ----------
         ndarray(3,) global_position :
-            The position to check for a collision in, relative to the 
+            The position to check for a collision in, relative to the environment
         float time :
             The time to check for a collision at. For static obstacles, leave this unset.
 

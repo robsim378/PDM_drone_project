@@ -20,3 +20,10 @@ class RectangularPrism(Shape):
         """ For more details, see the docstring in Shape for this function. """
 
         raise NotImplementedError("This hasn't been implemented yet.")
+
+    def getURDF(self):
+        """ For more details, see the docstring in Shape for this function. """
+
+        raise NotImplementedError("This hasn't been implemented yet.")
+
+

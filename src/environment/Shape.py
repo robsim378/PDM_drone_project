@@ -19,3 +19,14 @@ class Shape(ABC):
             The list of constraints defining collision with this shape.
         """
         pass
+
+    @abstractmethod
+    def getURDF(self):
+        """ Returns the URDF file associated with this obstacle
+
+        Returns
+        -------
+        String : 
+            The filepath of the URDF file
+        """
+        pass

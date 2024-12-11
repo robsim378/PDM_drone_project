@@ -60,6 +60,7 @@ This should bring up a simulator with a single drone flying between three waypoi
 - Get current state from Environment
 - Update current state by giving inputs to Environment
 - Implement state-space model
+- Compute difference between two DroneStates
 
 ## Environment
 - Add obstacles to pybullet environment
@@ -68,7 +69,8 @@ This should bring up a simulator with a single drone flying between three waypoi
 - Check for collision from Shape
 
 ## Planning
-- Prepare MPC (haven't looked into this as much yet)
+- Generate constraints
+- Implement solver
 
 
 # Notes on architecture
