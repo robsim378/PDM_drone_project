@@ -4,7 +4,7 @@ from environment.Shape import Shape
 class RectangularPrism(Shape):
     """ Class representing a rectangular prism. Implementation of the Shape abstract class."""
 
-    def __init__(self, length, width, height):
+    def __init__(self, length, width, height, position):
         """ Initialize a RectangularPrism.
 
         Parameters
