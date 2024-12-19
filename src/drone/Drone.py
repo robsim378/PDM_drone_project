@@ -2,24 +2,28 @@ import numpy as np
 
 from src.drone.DynamicalModel import DynamicalModel
 from src.drone.DroneState import DroneState
+from src.drone.Mixer import Mixer
 
 
 class Drone():
     """ Class representing a quadrotor drone. """
 
-    def __init__(self, model, initialState, environment):
+    def __init__(self, model, mixer, initialState, environment):
         """ Initialize a Drone.
 
         Parameters
         ----------
         DynamicalModel model :
             The dynamical model of the drone.
+        Mixer mixer :
+            The mixer used to convert from thrusts and torques into motor RPMs
         DroneState initialState :
             The initial state of the drone.
         Environment environment :
             The environment the drone is in.
         """
         self.model = model
+        self.mixer = mixer
         self.state = initialState
         self.environment = environment
 
