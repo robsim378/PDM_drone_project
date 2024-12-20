@@ -57,16 +57,21 @@ This should bring up a simulator with a single drone flying between three waypoi
 
 # TODO
 ## Drone
-- Get current state from Environment
-- Update current state by giving inputs to Environment
-- Implement state-space model
+- Implement full state-space model
 - Compute difference between two DroneStates
+- Extract properties from URDF file (currently hardcoded, mostly placeholder values)
+    - min thrust
+    - max thrust
+    - max RPM change rate
+    - mass
 
 ## Environment
 - Add obstacles to pybullet environment
 - Check for collision from Environment
 - Check for collision from Obstacle
 - Check for collision from Shape
+- Display ghost for target position, in red
+- Display ghost for MPC tail, in blue
 
 ## Planning
 - Generate constraints

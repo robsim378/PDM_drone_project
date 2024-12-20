@@ -8,7 +8,7 @@ from src.drone.Mixer import Mixer
 class Drone():
     """ Class representing a quadrotor drone. """
 
-    def __init__(self, model, mixer, initialState, environment):
+    def __init__(self, model, mixer, environment, drone_id=0):
         """ Initialize a Drone.
 
         Parameters
@@ -21,14 +21,17 @@ class Drone():
             The initial state of the drone.
         Environment environment :
             The environment the drone is in.
+        int drone_id :
+            The ID of the drone in the environment. 
         """
         self.model = model
         self.mixer = mixer
-        self.state = initialState
         self.environment = environment
+        self.id = drone_id
+        self.state = self.getState()
 
         # Drone physical properties
-        self.min_thrust = 0 # Placeholder value
+        self.min_thrust = 0.1 # Placeholder value
         self.max_thrust = 1 # Placeholder value
         self.max_RPM_change_rate = 20 # TODO: Not sure if this should be part of the dynamical model or not, that needs to be figured out still.
 
@@ -41,8 +44,10 @@ class Drone():
             The current state of the drone
         """
 
-        # NOTE: Get the state from self.environment, which will itself get it from pybullet.
-        raise NotImplementedError("This hasn't been implemented yet.")
+        # pose = self.environment._getDroneStateVector(self.id)[[0, 1, 2, 9]]
+        # velocity = self.environment._getDroneStateVector(self.id)[[10, 11, 12, 15]]
+        # self.state = DroneState(pose, velocity, None)
+        return self.environment.getDroneState(self.id)
 
     def updateState(self, input):
         """ Update the state of the drone based on input. 
@@ -54,7 +59,6 @@ class Drone():
             Format: [thrust, torque_roll, torque_pitch, torque_yaw]
         """
 
-        # NOTE: Don't use the dynamical model to caluclate the state, but
-        # rather send the input to pybullet and let it handle that.
-        raise NotImplementedError("This hasn't been implemented yet.")
+        action = self.mixer.input_to_RPM(input[0], input[1:4])
+        self.environment.env.step(action.reshape((1, 4)))
 

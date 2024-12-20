@@ -2,13 +2,19 @@ import numpy as np
 import cvxpy
 import pybullet as p
 
+from src.drone.DroneState import DroneState
 from src.environment.Obstacle import Obstacle
 
 class Environment():
     """ Class representing the environment a drone operates in. """
 
-    def __init__(self):
+    def __init__(self, env):
         """ Initialize an environment. 
+
+        Parameters
+        ----------
+        BaseAviary env :
+            The gym-pybullet-drones environment. Must be a subclass of BaseAviary
 
         Throws
         ------
@@ -18,10 +24,30 @@ class Environment():
         # Connect to a running pybullet instance (gym_pybullet_drones starts one, we want to connect to it)
         self.pyb_client_id = p.connect(p.SHARED_MEMORY)
 
-        if self.pyb_client_id == -1:
-            raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
+        self.env = env
+
+        # TODO: Figure out what's going on here
+
+        # if self.pyb_client_id == -1:
+        #     raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
 
         self.obstacles = []
+
+
+    def getDroneState(self, drone_id):
+        """ Get the current state of the drone from pybullet 
+
+        Returns
+        -------
+        DroneState :
+            The current state of the drone
+
+        """
+        pose = self.env._getDroneStateVector(drone_id)[[0, 1, 2, 8]]
+        velocity = self.env._getDroneStateVector(drone_id)[[10, 11, 12, 15]]
+        state = DroneState(pose, velocity, None)
+        return state
+
 
 
     def addObstacle(self, urdf, position, rotation):

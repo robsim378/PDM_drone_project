@@ -6,7 +6,7 @@ from src.drone.DynamicalModel import DynamicalModel
 class MPC():
     """ Class representing a Model Predictive Control controller used to control a Drone. """
 
-    def __init__(self, model, environment, dt, horizon=10):
+    def __init__(self, drone, model, environment, dt, horizon=10):
         """ Initialize an MPC controller. 
 
         Parameters
@@ -20,26 +20,117 @@ class MPC():
         int horizon :
             The number of timesteps into the future to predict.
         """
+        self.drone = drone
         self.model = model
         self.environment = environment
         self.dt = dt
         self.horizon = horizon
 
-        # TODO: Initialize constraints.
-        # - RPM constraints from Drone
-        # - Position constraints (e.g. room boundaries) from Environment
-        #   - These could also just be collision constraints with some walls
-        # - Collision constraints from Environment
+        # Initialize the x and u variables
+        self.x = cp.Variable((self.model.A.shape[1], self.horizon + 1)) # cp.Variable((dim_1, dim_2))
+        self.u = cp.Variable((self.model.B.shape[1], self.horizon))
+
+        # Weights for the input, position, and velocity.
+        # NOTE: This will be a good starting point once we have the actual state-space model set up. For now, use the stuff below.
+        # self.weight_input = 0.01*np.eye(4)    # Weight on the input
+        # self.weight_position = 1.0*np.eye(4) # Weight on the position
+        # self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
+
+        # For now, only weight thrust 
+        self.weight_input = np.zeros((4, 4))
+        self.weight_position = np.zeros((4, 4))
+        self.weight_velocity = np.zeros((4, 4))
+
+        self.weight_input[0, 0] = 0.01    
+        self.weight_position[2, 2] = 1.0
+        self.weight_velocity[2, 2] = 0.01
 
 
-    def getOutput(self, currentState, targetState):
+    def getConstraints(self, initial_state):
+        """ Get the constraints for MPC given the initial state.
+
+        Parameters
+        ----------
+        DroneState initial_state :
+            The current state of the drone.
+
+        Returns
+        -------
+        list of cvxpy constraints : 
+            The constraints for the system.
+        """
+
+        constraints = []
+
+        # This should probably go in DynamicalModel
+        g_term = np.zeros(self.model.B.shape[0])
+        g_term[6] = -9.8 * self.dt
+
+        # This is a placeholder value
+        max_thrust_rate = 1
+
+        for k in range(self.horizon):
+            constraints += [self.x[2, k] >= 0] # Min z position
+            constraints += [self.x[6, k] >= -100] # Min z velocity
+
+            constraints += [self.x[2, k] <= 5] # Max z position
+            constraints += [self.x[6, k] <= 100] # Max z velocity
+
+            constraints += [self.u[0, k] >= 0.01]    # Min thrust
+            constraints += [self.u[0, k] <= 1]    # Max thrust
+                
+            if k < self.horizon - 1:
+                constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
+
+            # dynamics
+            constraints += [self.x[:, k+1] == (
+                self.model.A @ self.x[:, k] + 
+                self.model.B @ self.u[:, k] + 
+                g_term
+            )] 
+
+        constraints += [self.x[:, 0] == initial_state]    # Initial position
+
+        return constraints
+
+
+    def getCost(self, target_state):
+        """ Get the cost function for MPC given the target state.
+
+        Parameters
+        ----------
+        DroneState target_state :
+            The target state of the drone.
+
+        Returns
+        -------
+        cvxpy cost function : 
+            The cost function.
+        """
+
+        cost = 0.
+
+        # Logging
+        print(f"Position cost: {cp.quad_form(self.x[0:4, 0], self.weight_position).value}")
+        print(f"Velocity cost: {cp.quad_form(self.x[4:8, 0], self.weight_velocity).value}")
+        print(f"Input cost: {cp.quad_form(self.u[:, 0], self.weight_input).value}")
+
+        for k in range(self.horizon):
+            cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
+            cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
+            cost += cp.quad_form(self.u[:, k], self.weight_input)
+
+        return cost
+
+
+    def getOutput(self, initial_state, target_state):
         """ Get the output of MPC for the given current and target states.
 
         Parameters
         ----------
-        DroneState currentState :
+        DroneState initial_state :
             The current state of the drone.
-        DroneState targetState :
+        DroneState target_state :
             The target state of the drone.
 
         Returns
@@ -47,117 +138,24 @@ class MPC():
         ndarray(4,) :
             The control input to the system for this timestep. 
             Format: [thrust, torque_roll, torque_pitch, torque_yaw]
-        """
-        pass
-
-    def getDemoConstraints(self):
-        """ This is just used for the first prototype, and will be removed soon. """
-        # Hovering dynamics
-        mass = 0.027
-        g = 9.8
-
-        pass
-
-
-    def getDemoOutput(self, initial_state, target_state, prev_input):
-        """ This is just used for the first prototype, and will be removed soon. 
-        
-        State in this demo is [height, velocity_upwards]
-        Input is [thrust upwards]
+        ndarray(8,) :
+            The predicted next state of the system
+        ndarray(horizon, 8) :
+            The MPC tail
         """
 
-        weight_input = 1.0*np.eye(1)    # Weight on the input
-        weight_position = 1.0*np.eye(1) # Weight on the position
-        weight_velocity = 0.1 * np.eye(1) # Weight on the velocity
+        # Convert the DroneStates into numpy arrays
+        x_init = np.hstack((initial_state.pose, initial_state.velocity))
+        x_target = np.hstack((target_state.pose, target_state.velocity))
 
-        max_thrust_rate = 1
+        # Initialize the cost and constraints
+        constraints = self.getConstraints(x_init)
+        cost = self.getCost(x_target)
 
-        cost = 0.
-        constraints = []
-
-        # State-space model for 1D example
-        A_c = np.array([
-            [0, 1],
-            [0, 0]
-        ])
-        A = np.eye(2) + A_c * self.dt
-        
-        B_c = np.array([
-            [0],
-            [1 / 0.027]
-        ])
-        B = B_c * self.dt
-
-        # Gravity term for dynamics
-        g_term = np.array([0., -9.8 * self.dt])
-
-        # Create the optimization variables
-        x = cp.Variable((2, self.horizon + 1)) # cp.Variable((dim_1, dim_2))
-        u = cp.Variable((1, self.horizon))
-
-        
-        # Initial guesses for x and u, just the current state and no input
-        x.value = np.tile(initial_state, (self.horizon + 1, 1)).T
-        u.value = np.tile(prev_input, (self.horizon, 1)).T
-        # u.value = np.zeros((self.horizon, 1)).T
-
-        # HINTS: 
-        # -----------------------------
-        # - To add a constraint use
-        #   constraints += [<constraint>] 
-        #   i.e., to specify x <= 0, we would use 'constraints += [x <= 0]'
-        # - To add to the cost, you can simply use
-        #   'cost += <value>'
-        # - Use @ to multiply matrices and vectors (i.e., 'A@x' if A is a matrix and x is a vector)
-        # - A useful function to know is cp.quad_form(x, M) which implements x^T M x (do not use it for scalar x!)
-        # - Use x[:, k] to retrieve x_k
-
-        # For each stage in k = 0, ..., N-1
-        print(f"Position cost: {weight_position * np.square(x.value[0, 0] - target_state[0])}")
-        print(f"Velocity cost: {weight_velocity * np.square(x.value[1, 0] - target_state[1])}")
-        print(f"Input cost: {weight_input * np.square(u.value[0, 0])}")
-        for k in range(self.horizon):
-
-            cost += weight_position * cp.square(x[0, k] - target_state[0])    # Position penalty
-            cost += weight_velocity * cp.square(x[1, k] - target_state[1])    # Velocity penalty
-            cost += weight_input * cp.square(u[0, k])    # Input penalty
-            # cost += cp.quad_form(x[:, k] - target_state, weight_tracking)
-            # cost += cp.quad_form(u[:, k], weight_input)
-
-            constraints += [x[0, k] >= 0] # Min position
-            constraints += [x[1, k] >= -100] # Min velocity
-
-            constraints += [x[0, k] <= 5] # Max position
-            constraints += [x[1, k] <= 100] # Max velocity
-
-            constraints += [u[:, k] >= 0.01]    # Min thrust
-            constraints += [u[:, k] <= 1]    # Max thrust
-                
-            if k < self.horizon - 1:
-                constraints += [cp.abs(u[:, k+1] - u[:, k]) <= max_thrust_rate]
-
-            constraints += [x[:, k+1] == (A @ x[:, k] + B @ u[:, k] + g_term)] # Dynamics
-
-
-
-        # EXERCISE: Implement the cost components and/or constraints that need to be added once, here
-        # YOUR CODE HERE
-        constraints += [x[:, 0] == initial_state]    # initial position
-
-        # Solves the problem
+        # Solve the optimization problem
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver=cp.OSQP, verbose=False)
 
-        # We return the MPC input and the next state
-        return u[:, 0].value, x[:, 1].value, x.value, 0
-
-
-
-
-
-
-
-
-
-
+        # Return the next input, predicted next state, and tail
+        return self.u[:, 0].value, self.x[:, 1].value, self.x.value
 

@@ -1,5 +1,5 @@
 """
-This is a test script to test the Mixer class
+This is a test script to test the core MPC implementation
 """
 
 import os
@@ -18,8 +18,11 @@ from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
+from src.drone.DroneState import DroneState
+from src.drone.DynamicalModel import DynamicalModel
 from src.drone.Mixer import Mixer
 from src.drone.Drone import Drone
+from src.environment.Environment import Environment
 from src.planning.MPC import MPC
 from src.planning.CartesianGraph import CartesianGraph
 from src.planning.Node import Node, Connection
@@ -79,7 +82,7 @@ def run(
 
     #### Obtain the PyBullet Client ID from the environment ####
     PYB_CLIENT = env.getPyBulletClient()
-    p.connect(p.SHARED_MEMORY)
+    test = p.connect(p.SHARED_MEMORY)
 
     #### Initialize the logger #################################
     logger = Logger(logging_freq_hz=control_freq_hz,
@@ -95,6 +98,14 @@ def run(
                    physicsClientId=PYB_CLIENT
                    )
 
+    ##### Model Predictive Control setup ##########################
+    # Initialize the simulation and do a single timestep to ensure everything is initialized properly
+    START = time.time()
+    env.step(np.zeros((1, 4)))
+
+    dt = 1 / control_freq_hz
+    mass = 0.027    # This is taken from the URDF file. Ideally, we should be extracting this and storing it in the Drone object.
+
     # Initialize the Mixer
     mixer_matrix = np.array([
         [-.5, -.5, -1],
@@ -104,41 +115,49 @@ def run(
     ])
     mixer = Mixer(mixer_matrix, 3.16e-10, 0.2685, 4070.3, 20000, 65535)
 
-    # Initialize the Drone
-    drone = Drone(None, mixer, None, None)
+    # Initialize the dynamical model
+    A_c = np.zeros((8,8))
+    A_c[2,6] = 1
+    A = np.eye(8) + A_c * dt
+    
+    B_c = np.zeros((8,4))
+    B_c[6,0] = 1 / mass
+    B = B_c * dt
+
+    model = DynamicalModel(A, B)
+
+    # Initialize the environment
+    environment = Environment(env)
+
+    # Initialize the Drone 
+    drone = Drone(model, mixer, environment)
 
     # Initialize the controller
-    period = 1 / control_freq_hz
-    print(period)
-    controller = MPC(None, None, period, 20)
-
-    # current_state = np.array([1, 0]).T
-    thrust = 0
+    controller = MPC(drone, drone.model, environment, dt, 10)
 
     #### Run the simulation ####################################
-    action = np.zeros((num_drones,4))
-    START = time.time()
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
 
-        #### Step the simulation ###################################
-        obs, reward, terminated, truncated, info = env.step(action)
-
-        #### Compute control for the current way point #############
+        # Loop for multiple drones. We don't have multiple drones, but removing this is a hassle with no real benefit.
         for j in range(num_drones):
-            # 0.027 is the mass of the drone, taken from the URDF. This should probably be added to the Drone object.
-            target_state = np.array([0.5 * np.sin(i/10) + 1, 0.]).T
-            # target_state = np.array([0.5, 0.]).T
-            print(f"Target state: {target_state}")
 
-            # This doesn't quite hover, I suspect because the motors must spin up and so it gains a downward 
-            # velocity that it can't remove.
-            current_state = env._getDroneStateVector(0)[[2, 12]]
-            print(f"Current state: {current_state}")
-            thrust, next_state, _, _ = controller.getDemoOutput(current_state, target_state, thrust)
-            # thrust += 0.027 * 9.8
+            # Determine the trajectory. For now just hover up and down
+            target_z = 0.5 * np.sin(i/10) + 1
+            # target_z = 1.5
+            target_state = DroneState(np.array([0, 0, target_z, 0]), np.array([0, 0, 0, 0]), None)
+
+            # Get the drone's current state
+            current_state = drone.getState()
+
+            # Get the output from MPC
+            control_input, next_state, tail = controller.getOutput(current_state, target_state)
+
+            # Logging
             print(f"Predicted next state: {next_state}")
-            print(f"Calculated thrust: {thrust}")
-            action[j, :] = drone.mixer.input_to_RPM(thrust, np.array([0, 0, 0]))
+            print(f"Calculated control input: {control_input}")
+
+            # Update the state in simulation. This also advances the simulation.
+            drone.updateState(control_input)
 
 
         #### Printout ##############################################

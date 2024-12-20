@@ -18,13 +18,12 @@ class DroneState():
             The current RPM of each motor, going clockwise from the rear right motor.
         """
 
-        # NOTE: Exact format of everything is not finalized yet
-
         # NOTE: We could use the Frame class from RDC. I (Robert) have a refactored version
         # with cleaner code I made that we could use.
 
         self.pose = pose
         self.velocity = velocity
+        # NOTE: RPMs probably shouldn't be included here, but it needs more consideration before removing them.
         self.RPMs = RPMs
 
     def computeDistance(self, target):
@@ -37,24 +36,12 @@ class DroneState():
 
         Returns
         -------
-        (float, float) :
-            Positional and rotational errors
+        (ndarray(4,), ndarray(4,))
+            Positional and rotational errors for pose, positional and rotational errors for velocity
         """
-        pass
 
-    def inputToRPMs(self, input):
-        """ Converts system input into RPMs for use in PyBullet
-
-        Parameters
-        ----------
-        ndarray(4,) input :
-            The control input to the system for this timestep. 
-            Format: [thrust, torque_roll, torque_pitch, torque_yaw]
-
-        Returns
-        -------
-        ndarray(4,) :
-            The RPM of each rotor, going clockwise starting from the rear right rotor.
-        """
-        pass
-
+        # NOTE: This is a placeholder I added to make an MPC prototype. This doesn't handle rotational
+        # errors correctly, but I wasn't dealing with those at all.
+        pose_error = self.pose - target.pose
+        velocity_error = self.velocity - target.velocity
+        return pose_error, velocity_error
