@@ -28,8 +28,8 @@ class Drone():
         self.environment = environment
 
         # Drone physical properties
-        self.min_RPM = 0 # Placeholder value
-        self.max_RPM = 20000 # Placeholder value
+        self.min_thrust = 0 # Placeholder value
+        self.max_thrust = 1 # Placeholder value
         self.max_RPM_change_rate = 20 # TODO: Not sure if this should be part of the dynamical model or not, that needs to be figured out still.
 
     def getState(self):
