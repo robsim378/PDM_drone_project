@@ -25,6 +25,9 @@ class Environment():
         self.pyb_client_id = p.connect(p.SHARED_MEMORY)
 
         self.env = env
+        self.dt = 1 / env.CTRL_FREQ
+
+
 
         # TODO: Figure out what's going on here
 

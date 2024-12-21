@@ -103,11 +103,8 @@ def run(
     START = time.time()
     env.step(np.zeros((1, 4)))
 
-    dt = 1 / control_freq_hz
-    mass = 0.027    # This is taken from the URDF file. Ideally, we should be extracting this and storing it in the Drone object.
-    I_x = 1.4e-5
-    I_y = 1.4e-5
-    I_z = 2.17e-5
+    # This is now stored in drone.env, and is initialized from the same values when the Environment is initialized.
+    # dt = 1 / control_freq_hz
 
     # Initialize the Mixer
     mixer_matrix = np.array([
@@ -118,24 +115,14 @@ def run(
     ])
     mixer = Mixer(mixer_matrix, 3.16e-10, 0.2685, 4070.3, 20000, 65535)
 
-    # Initialize the dynamical model
-    A_c = np.eye(8, k=4)
-    A = np.eye(8) + A_c * dt
-    
-    B_c = np.zeros((8,4))
-    B_c[6,0] = 1 / mass
-    B = B_c * dt
-
-    model = DynamicalModel(A, B)
-
     # Initialize the environment
     environment = Environment(env)
 
     # Initialize the Drone 
-    drone = Drone(model, mixer, environment)
+    drone = Drone(mixer, environment)
 
     # Initialize the controller
-    controller = MPC(drone, drone.model, environment, dt, 10)
+    controller = MPC(drone, drone.model, environment, environment.dt, 10)
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
@@ -144,9 +131,9 @@ def run(
         for j in range(num_drones):
 
             # Determine the trajectory. For now just hover up and down
-            target_z = 0.5 * np.sin(i/10) + 1
-            # target_z = 1.5
-            target_x = 1.0
+            # target_z = 0.5 * np.sin(i/10) + 1
+            target_z = 1.5
+            target_x = 0.0
             target_state = DroneState(np.array([target_x, 0, target_z, 0]), np.array([0, 0, 0, 0]), None)
 
             # Get the drone's current state

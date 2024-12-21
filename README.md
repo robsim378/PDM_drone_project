@@ -41,16 +41,79 @@ Every time you work on this project in a new shell, you must run the command `so
 If successful, you should be able to run the following commands:
 ```bash
 cd 
-python3 demos/test.py
+python3 demos/mpc_test.py
 ```
-This should bring up a simulator with a single drone flying between three waypoints.
+This should bring up a simulator with a single drone hovering up and down
 
 
 
 
 
 
-# Everything below this point is some notes I took while investigating the environment and setting up the project structure. We'll go over them when we meet next.
+
+# Report on what I did
+## Drone
+### Implemented
+- Conversion from [thrust, torque_x, torque_y, torque_z] into [rpm_1, rpm_2, rpm_3, rpm_4] is done in the Mixer class
+    - The code that does this is pretty much just ripped straight from the CtrlAviary class in gym-pybullet-drones
+- DynamicalModel class doesn't really need any more work, there's not much to it.
+- DroneState setup is complete, but parts of the implementation are missing (more detail further down)
+- Drone class constructor is set up, but is missing most of the drone's physical properties (mass, etc) are hardcoded.
+    - Drone constructor also sets up the state-space model, so when that gets implemented fully that's where it'll be.
+- Getting the current state from the environment is done
+- Updating the state and stepping the pybullet simulation is done
+### TODO
+- Include the URDF file in the drone
+- Extract the drone's physical properties (mass, moments of inertia, etc) from the URDF file in the Drone constructor
+- Proper calculation of error/distance between two drone states
+- Full implementation of the drone dynamics
+    - If this proves too hard (I spent a full day trying and wasn't able to, but I also have no background in physics), then the input vector in MPC should be modified to simplify the problem
+        - Specifically, make it output desired velocities in the world frame, and find some way to feed those directly into pybullet. This means you'll have to change Drone.updateState() accordingly.
+
+## Environment
+### Implemented
+- Constructor is mostly set up, but the pyb_client_id is still -1 despite things working. For now, I have commented out the check for this, but this may be worth investigating if it's ever needed.
+- Getting the current drone state from pybullet is done
+### TODO
+- Add obstacles
+- Get collision constraints for obstacles
+- Implement all obstacle-related classes
+
+## Planning
+### Implemented
+- A first prototype of MPC is set up. This uses a simplified version of the system dynamics (i.e. state-space matrices) and only considers altitude.
+- Constraints for min/max position, velocity, thrust, and torques are implemented (position/velocity currently only for z-axis)
+- Dynamics constraints are implemented
+### TODO
+- Implement the full system dynamics. The state-space matrices are set up in the constructor of the Drone class.
+    - More details in the Drone TODO section
+- Add collision constraints
+
+## Main
+
+## What's left to do (specific)
+
+## What's left to do (higher-level)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Everything below this point is some notes I took while investigating the environment and setting up the project structure.
 
 
 

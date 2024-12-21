@@ -8,7 +8,7 @@ from src.drone.Mixer import Mixer
 class Drone():
     """ Class representing a quadrotor drone. """
 
-    def __init__(self, model, mixer, environment, drone_id=0):
+    def __init__(self, mixer, environment, drone_id=0):
         """ Initialize a Drone.
 
         Parameters
@@ -24,16 +24,37 @@ class Drone():
         int drone_id :
             The ID of the drone in the environment. 
         """
-        self.model = model
         self.mixer = mixer
         self.environment = environment
         self.id = drone_id
         self.state = self.getState()
+        
 
-        # Drone physical properties
-        self.min_thrust = 0.1 # Placeholder value
-        self.max_thrust = 1 # Placeholder value
+        # Drone physical properties. These are all placeholders, and should ideally be extracted from the URDF file.
+        # On that note, the URDF file should probably be part of the constructor, to make it easy to switch drones if we want.
+        self.mass = 0.027
+        self.min_RPM = 0
+        self.max_RPM = 20000
+        self.min_thrust = 0.1 # possibly derived from min_RPM
+        self.max_thrust = 1 # possibly derived from max_RPM
+        self.min_tilt_torque = -1 # Min torque for roll and pitch
+        self.max_tilt_torque = 1 # Max torque for roll and pitch
+        self.min_yaw_torque = -1 # Min torque for yaw
+        self.max_yaw_torque = 1 # Max torque for yaw
         self.max_RPM_change_rate = 20 # TODO: Not sure if this should be part of the dynamical model or not, that needs to be figured out still.
+        self.I_x = 1.4e-5
+        self.I_y = 1.4e-5
+        self.I_z = 2.17e-5
+
+        # Initialize the dynamical model
+        A_c = np.eye(8, k=4)
+        A = np.eye(8) + A_c * environment.dt
+        
+        B_c = np.zeros((8,4))
+        B_c[6,0] = 1 / self.mass
+        B = B_c * environment.dt
+
+        self.model = DynamicalModel(A, B)
 
     def getState(self):
         """ Get the current state of the drone. 
