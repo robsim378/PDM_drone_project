@@ -90,11 +90,11 @@ This should bring up a simulator with a single drone hovering up and down
 - Add collision constraints
 
 ## Main
-
-## What's left to do (specific)
-
-## What's left to do (higher-level)
-
+- The script to run is `mpc_test.py`. This sets up the pybullet environment, and then sets up our system.
+- Our system is set up starting from the line with the comment saying "Model Predictive Control setup" (line 101 at the time of writing)
+- It initializes instances of all the classes I've implemented at the moment
+- There are two nested for loops. You can ignore the loops themselves, those won't change. The code inside is where MPC is run. The target state is generated, MPC is used to get the control output, and the output is given to drone.updateState(). This all happens once every iteration of the loop. drone.updateState handles advancing the simulation.
+- There's nothing after the loop that we'll have to worry about.
 
 
 
