@@ -31,19 +31,9 @@ class MPC():
         self.u = cp.Variable((self.model.B.shape[1], self.horizon))
 
         # Weights for the input, position, and velocity.
-        # NOTE: This will be a good starting point once we have the actual state-space model set up. For now, use the stuff below.
-        # self.weight_input = 0.01*np.eye(4)    # Weight on the input
-        # self.weight_position = 1.0*np.eye(4) # Weight on the position
-        # self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
-
-        # For now, only weight thrust 
-        self.weight_input = np.zeros((4, 4))
-        self.weight_position = np.zeros((4, 4))
-        self.weight_velocity = np.zeros((4, 4))
-
-        self.weight_input[0, 0] = 0.01    
-        self.weight_position[2, 2] = 1.0
-        self.weight_velocity[2, 2] = 0.01
+        self.weight_input = 0.01 * np.eye(4) # Weight on the input
+        self.weight_position = 1.0*np.eye(4) # Weight on the position
+        self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
 
 
     def getConstraints(self, initial_state):
@@ -76,8 +66,12 @@ class MPC():
             constraints += [self.x[2, k] <= 5] # Max z position
             constraints += [self.x[6, k] <= 100] # Max z velocity
 
+
             constraints += [self.u[0, k] >= 0.01]    # Min thrust
             constraints += [self.u[0, k] <= 1]    # Max thrust
+
+            constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
+            constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
                 
             if k < self.horizon - 1:
                 constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
@@ -109,11 +103,6 @@ class MPC():
         """
 
         cost = 0.
-
-        # Logging
-        print(f"Position cost: {cp.quad_form(self.x[0:4, 0], self.weight_position).value}")
-        print(f"Velocity cost: {cp.quad_form(self.x[4:8, 0], self.weight_velocity).value}")
-        print(f"Input cost: {cp.quad_form(self.u[:, 0], self.weight_input).value}")
 
         for k in range(self.horizon):
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
@@ -155,6 +144,11 @@ class MPC():
         # Solve the optimization problem
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver=cp.OSQP, verbose=False)
+
+        # Logging
+        print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
+        print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
+        print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
 
         # Return the next input, predicted next state, and tail
         return self.u[:, 0].value, self.x[:, 1].value, self.x.value

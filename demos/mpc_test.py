@@ -105,6 +105,9 @@ def run(
 
     dt = 1 / control_freq_hz
     mass = 0.027    # This is taken from the URDF file. Ideally, we should be extracting this and storing it in the Drone object.
+    I_x = 1.4e-5
+    I_y = 1.4e-5
+    I_z = 2.17e-5
 
     # Initialize the Mixer
     mixer_matrix = np.array([
@@ -116,8 +119,7 @@ def run(
     mixer = Mixer(mixer_matrix, 3.16e-10, 0.2685, 4070.3, 20000, 65535)
 
     # Initialize the dynamical model
-    A_c = np.zeros((8,8))
-    A_c[2,6] = 1
+    A_c = np.eye(8, k=4)
     A = np.eye(8) + A_c * dt
     
     B_c = np.zeros((8,4))
@@ -144,7 +146,8 @@ def run(
             # Determine the trajectory. For now just hover up and down
             target_z = 0.5 * np.sin(i/10) + 1
             # target_z = 1.5
-            target_state = DroneState(np.array([0, 0, target_z, 0]), np.array([0, 0, 0, 0]), None)
+            target_x = 1.0
+            target_state = DroneState(np.array([target_x, 0, target_z, 0]), np.array([0, 0, 0, 0]), None)
 
             # Get the drone's current state
             current_state = drone.getState()
@@ -153,7 +156,7 @@ def run(
             control_input, next_state, tail = controller.getOutput(current_state, target_state)
 
             # Logging
-            print(f"Predicted next state: {next_state}")
+            # print(f"Predicted next state: {next_state}")
             print(f"Calculated control input: {control_input}")
 
             # Update the state in simulation. This also advances the simulation.
