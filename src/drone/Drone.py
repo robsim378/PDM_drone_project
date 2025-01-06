@@ -70,16 +70,19 @@ class Drone():
         # self.state = DroneState(pose, velocity, None)
         return self.environment.getDroneState(self.id)
 
-    def updateState(self, input):
+    def updateState(self, action):
         """ Update the state of the drone based on input. 
 
         Parameters
         ----------
-        ndarray(4,) :
+        action ndarray(4,) :
             The control input to the system for this timestep. 
-            Format: [thrust, torque_roll, torque_pitch, torque_yaw]
+            Inputs are RPMs for each rotor, clockwise from rear right.
         """
 
-        action = self.mixer.input_to_RPM(input[0], input[1:4])
-        self.environment.env.step(action.reshape((1, 4)))
+        # NOTE: In the current implementation, this is not used. Should probably be removed.
+
+        # Uncomment this line to treat action as [thrust, torque_roll, torque_pitch, torque_yaw]
+        # action = self.mixer.input_to_RPM(input[0], input[1:4])
+        # self.environment.env.step(action.reshape((1, 4)))
 

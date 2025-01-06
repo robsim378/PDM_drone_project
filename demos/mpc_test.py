@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
+from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import sync, str2bool
 
@@ -122,32 +123,53 @@ def run(
     drone = Drone(mixer, environment)
 
     # Initialize the controller
-    controller = MPC(drone, drone.model, environment, environment.dt, 10)
+    mpc_controller = MPC(drone, drone.model, environment, environment.dt, 10)
+
+    pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
+
+    control_input = np.zeros((1, 4))
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
 
         # Loop for multiple drones. We don't have multiple drones, but removing this is a hassle with no real benefit.
         for j in range(num_drones):
+            obs, reward, terminated, truncated, info = env.step(control_input)
 
             # Determine the trajectory. For now just hover up and down
-            # target_z = 0.5 * np.sin(i/10) + 1
-            target_z = 1.5
-            target_x = 0.0
-            target_state = DroneState(np.array([target_x, 0, target_z, 0]), np.array([0, 0, 0, 0]), None)
+            target_z = 0.5 * np.sin(i/10) + 1
+            target_x = -2.0
+            target_y = -1.0
+            target_yaw = 0
+            target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
 
             # Get the drone's current state
             current_state = drone.getState()
 
-            # Get the output from MPC
-            control_input, next_state, tail = controller.getOutput(current_state, target_state)
+            # Get the output from MPC. In the current state of our system, this is just a position and yaw.
+            next_waypoint, next_state, tail = mpc_controller.getOutput(current_state, target_state)
 
-            # Logging
-            # print(f"Predicted next state: {next_state}")
-            print(f"Calculated control input: {control_input}")
+            # Compute inputs to the PID controller based on the output from MPC
+            target_pos = next_waypoint[:3]
+            target_rpy = INIT_RPYS[j, :]
+            target_rpy[2] += next_waypoint[3]
+
+            # Send the control inputs to MPC
+            control_input[j, :], _, _ = pid_controller.computeControlFromState(
+                control_timestep=env.CTRL_TIMESTEP,
+                state=obs[j],
+                # target_pos=np.hstack(next_waypoint, INIT_XYZS[j, 2]]),
+                target_pos=target_pos,
+                # target_pos=INIT_XYZS[j, :] + TARGET_POS[wp_counters[j], :],
+                target_rpy=target_rpy
+        )
+
+        # Logging
+        # print(f"Predicted next state: {next_state}")
+            # print(f"Calculated control input: {control_input}")
 
             # Update the state in simulation. This also advances the simulation.
-            drone.updateState(control_input)
+            # drone.updateState(control_input)
 
 
         #### Printout ##############################################

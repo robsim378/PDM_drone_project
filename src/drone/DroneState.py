@@ -18,9 +18,6 @@ class DroneState():
             The current RPM of each motor, going clockwise from the rear right motor.
         """
 
-        # NOTE: We could use the Frame class from RDC. I (Robert) have a refactored version
-        # with cleaner code I made that we could use.
-
         self.pose = pose
         self.velocity = velocity
         # NOTE: RPMs probably shouldn't be included here, but it needs more consideration before removing them.
