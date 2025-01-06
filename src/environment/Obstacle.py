@@ -22,9 +22,9 @@ class Obstacle():
         self.shape = shape
         # NOTE: if we use the built-in predefined pybullet shapes we can use their 
         # identifiers (e.g. p.GEOM_SPHERE) to determine which of our shape class we need
-        self.pyb_obj_id = pyb_obj_id
-        self.pyb_client_id = p.connect(p.SHARED_MEMORY)
-        self.environment = BaseAviary()
+        # self.pyb_obj_id = pyb_obj_id
+        # self.pyb_client_id = p.connect(p.SHARED_MEMORY)
+        # self.environment = CtrlAviary()
 
         # If the obstacle is static, the trajectory should always be 0.
         # NOTE: We need to make sure that the trajectory is defined entirely in terms of
@@ -58,32 +58,50 @@ class Obstacle():
         # as the position.
 
         #The point position of the obstacle w.r.t the world
-        global_pos_obs = self.pose[:3]
-        #The point to be checked for collision relative to this obstacle's center point
-        relative_pos = global_pos_obs - global_pos
-        #TODO: something with the orientation? not relevant for spheres but yes for squares
-        return self.shape.getCollisionConstraints(relative_pos, inflationAmount)
+        # global_pose_obs = self.pose[:3]
+
+        # Obstacle pose w.r.t world at time t
+        global_pose_obs = self.pose + self.trajectory(time) 
+        #NOTE: Not sure if this is how we use the trajectory function so double check. 
+        # We said trajectory would be offsets of obstacle's position, 
+        # so add it to the obstacle's initial pose to get pose at time t?
+
+
+
+        relative_pose = np.zeros_like(self.pose)
+        relative_pose[:3] = global_pos - global_pose_obs[:3]    #The point to be checked for collision relative to this obstacle's center point
+        relative_pose[3:] = -global_pose_obs[3:]                #orientation of point relative to obstacle
+        return self.shape.getCollisionConstraints(relative_pose, inflationAmount)
 
     def getDroneState(self, aviary_env: CtrlAviary):
         """ Returns the current state of the Drone
 
-        Returns
+        Returns numpy array of length 6. x,y,z,rool,pitch,yaw
         -------
         DroneState :
-            The current state of the drone
+            The current state of the drone from the environment.
         """
-        # raise NotImplementedError("This hasn't been implemented yet.")
-        state_vec_pyb = aviary_env._getDroneStateVector(self.pyb_client_id) 
-        return [state_vec_pyb[0], state_vec_pyb[2], state_vec_pyb[3], state_vec_pyb[4]] #xyz position, roll, pitch, yaw
+        state_vec_pyb = aviary_env._getDroneStateVector(nth_drone=0)
+        #NOTE: nth_drone=0 because we only have one drone. 
+        #TODO: if we have more drones, change to find the relevant drone.
+        xyz_position = state_vec_pyb[0]
+        rpy_orientation = [state_vec_pyb[2], state_vec_pyb[3], state_vec_pyb[4]]
+        # return [state_vec_pyb[0], state_vec_pyb[2], state_vec_pyb[3], state_vec_pyb[4]] #xyz position, roll, pitch, yaw
+        return np.array(xyz_position + rpy_orientation)
         
 
-    def updateDroneState(self, aviary_env: CtrlAviary, RPMs):
+    def updateDroneState(self, aviary_env: CtrlAviary, rpm_list):
         """ Updates the state of the drone in PyBullet.
 
         Parameters
         ----------
-        ndarray(4,) RPMs :
+        ndarray(4,) rpm_list :
             The RPM of each rotor, going clockwise starting from the rear right rotor.
         """
-        aviary_env._physics(RPMs, 0) #0 because we only have one drone. TODO: if we have more, change to find the relevant drone.
+        aviary_env._physics(rpm_list, nth_drone=0) 
+        #NOTE: nth_drone=0 because we only have one drone. 
+        #TODO: if we have more drones, change to find the relevant drone.
+
+        #TODO: change to just update the position
+        
 
