@@ -10,8 +10,13 @@ from src.environment.Obstacle import Obstacle
 class Environment():
     """ Class representing the environment a drone operates in. """
 
-    def __init__(self, aviary_env: CtrlAviary):
+    def __init__(self, env):
         """ Initialize an environment. 
+
+        Parameters
+        ----------
+        BaseAviary env :
+            The gym-pybullet-drones environment. Must be a subclass of BaseAviary
 
         Throws
         ------
@@ -21,15 +26,38 @@ class Environment():
         # Connect to a running pybullet instance (gym_pybullet_drones starts one, we want to connect to it)
         self.pyb_client_id = p.connect(p.SHARED_MEMORY)
 
-        if self.pyb_client_id == -1:
-            raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
+        self.env = env
+        self.dt = 1 / env.CTRL_FREQ
+
+        # TODO: Figure out what's going on here
+
+        # if self.pyb_client_id == -1:
+        #     raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
+
 
         self.obstacles = []
-        #Array of objects in the environment represented by their pybullet id's
+        #Array of objects (obst + drone etc) in the environment represented by their pybullet id's
         self.objects = []
         # self.drone_id = -1
         # self.env_id = p_id
-        self.aviary_env = aviary_env
+
+
+
+    def getDroneState(self, drone_id):
+        """ Get the current state of the drone from pybullet 
+
+        Returns
+        -------
+        DroneState :
+            The current state of the drone
+
+        """
+        pose = self.env._getDroneStateVector(drone_id)[[0, 1, 2, 8]]
+        velocity = self.env._getDroneStateVector(drone_id)[[10, 11, 12, 15]]
+        state = DroneState(pose, velocity, None)
+        return state
+
+
 
     def addObstacle(self, urdf, position, rotation, scale):
         """ Add an obstacle to the environment.
@@ -59,7 +87,7 @@ class Environment():
         # Add id to objects
         self.objects += [obj_id]
 
-    def checkCollision(self, position, inflationAmount):
+    def getCollisionConstraints(self, position, inflationAmount):
         """ Checks if the requested space is occupied.
 
         Parameters
