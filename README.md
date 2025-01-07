@@ -47,6 +47,53 @@ This should bring up a simulator with a single drone hovering up and down
 
 
 
+# Modules
+The structure of this project consists of three main modules that work together to control a drone. 
+
+## Drone
+This module contains a representation of the drone. This consists of four classes, two of which are currently unused:
+
+### Class Drone
+Each instance of this class corresponds to a single drone in the simulator. It contains data on the drone model, such as its RPM limits and geometry, as well as a reference to the environment in which the drone lives. It also contains a function for getting the current state of the drone from the simulator.
+
+### Class DroneState
+This class stores the state of a Drone. This is mostly just for convenience, allowing us to write drone.state.pose instead of drone.state[:3], and makes it more robust to changes in the structure of the state vector during development.
+
+### Class DynamicalModel
+This class bundles together the A and B state-space matrices for convenience, but we're currently not using the dynamical model so it is unused.
+
+### Class Mixer
+This class is the mixer, which converts from torques/thrusts to motor RPMs for sending to the simulator. We are not currently computing torques and thrusts, so this is unused.
+
+
+## Environment
+This module contains a representation of the environment in which the drone operates. It handles interfacing with the simulator, 
+
+### Class Environment
+This class handles retrieving information from the simulation and advancing it. It also keeps track of all drones in the environment (currently we only use one), as well as adding obstacles to the environent and getting collision constraints for all obstacles in the environment.
+
+### Class Obstacle
+This class encompasses all obstacles that can be collided with in the environment. It stores their position, geometry data, and handles checking for collisions with a single obstacle.
+
+### Class Shape
+This abstract class contains the interface that all 3D geometric objects must follow. Subclasses must implement collision constraint calculation based on their specific geometry.
+
+### Classes Sphere, RectangularPrism
+These classes implement the Shape abstract class, and handle calculating collision constraints based on their specific geometry.
+
+
+## Planning
+This module handles motion planning. The system uses MPC for local planning, and currently uses nothing for global planning, as GlobalPlanner is not implemented. The remaining classes in the module are placeholders for A*, but we probably won't end up using them so they'll probably be removed soon
+
+### Class MPC
+This class contains our implementation of a model predictive controller. Once initialized, it takes a starting DroneState and a target DroneState and calculates control inputs to move the drone to the desired state. In its current implementation, the control inputs calculated are just a series of points moving towards the target destination, since we were not able to get full drone dynamics working. These points are then fed into a PID controller provided by the environment to move the drone to them.
+
+### Class GlobalPlanner
+This class is currently empty, but will contain a global motion planner. Most likely, this will just be a straight line from the current state to the target state, but if we have the time we can use a basic A* or RRT implementation.
+
+### Classes Graph, Node, CartesianGraph
+These classes could be used to set up A* if we have time, but it's a low priority so for now they just sit there.
+
 
 
 

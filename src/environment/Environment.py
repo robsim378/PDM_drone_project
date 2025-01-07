@@ -27,6 +27,7 @@ class Environment():
         self.env = env
         self.dt = 1 / env.CTRL_FREQ
 
+        self.drones = {}
 
 
         # TODO: Figure out what's going on here
@@ -51,6 +52,28 @@ class Environment():
         state = DroneState(pose, velocity, None)
         return state
 
+    def addDrone(self, drone):
+        """ Add a Drone to the list of drones in this environment. 
+
+        Parameters
+        ----------
+        Drone drone :
+            The Drone to add to the list.
+        """
+        self.drones[drone.id] = drone
+
+    def advanceSimulation(self):
+        """ Advance the simulation, executing the queued actions for all drones. """
+
+        # Initialize empty actions for all drones
+        actions = np.zeros((len(self.drones), 4))
+
+        # Get queued actions for all Drones and reset them
+        for id in self.drones.keys():
+            actions[id, :] = self.drones[id].action
+            self.drones[id].action = None
+
+        self.env.step(actions)
 
 
     def addObstacle(self, urdf, position, rotation):

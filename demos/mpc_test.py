@@ -134,7 +134,8 @@ def run(
 
         # Loop for multiple drones. We don't have multiple drones, but removing this is a hassle with no real benefit.
         for j in range(num_drones):
-            obs, reward, terminated, truncated, info = env.step(control_input)
+            # obs, reward, terminated, truncated, info = env.step(control_input)
+            environment.advanceSimulation()
 
             # Determine the trajectory. For now just hover up and down
             target_z = 0.5 * np.sin(i/10) + 1
@@ -155,7 +156,8 @@ def run(
             target_rpy[2] += next_waypoint[3]
 
             # Send the control inputs to MPC
-            control_input[j, :], _, _ = pid_controller.computeControlFromState(
+            # control_input[j, :], _, _ = pid_controller.computeControlFromState(
+            drone.action = pid_controller.computeControlFromState(
                 control_timestep=env.CTRL_TIMESTEP,
                 state=obs[j],
                 # target_pos=np.hstack(next_waypoint, INIT_XYZS[j, 2]]),

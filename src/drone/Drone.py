@@ -56,6 +56,9 @@ class Drone():
 
         self.model = DynamicalModel(A, B)
 
+        # RPMs of all motors, clockwise from rear right.
+        self.action = None
+
     def getState(self):
         """ Get the current state of the drone. 
 
@@ -69,18 +72,6 @@ class Drone():
         # velocity = self.environment._getDroneStateVector(self.id)[[10, 11, 12, 15]]
         # self.state = DroneState(pose, velocity, None)
         return self.environment.getDroneState(self.id)
-
-    def updateState(self, action):
-        """ Update the state of the drone based on input. 
-
-        Parameters
-        ----------
-        action ndarray(4,) :
-            The control input to the system for this timestep. 
-            Inputs are RPMs for each rotor, clockwise from rear right.
-        """
-
-        # NOTE: In the current implementation, this is not used. Should probably be removed.
 
         # Uncomment this line to treat action as [thrust, torque_roll, torque_pitch, torque_yaw]
         # action = self.mixer.input_to_RPM(input[0], input[1:4])
