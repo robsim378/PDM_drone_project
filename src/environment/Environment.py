@@ -73,7 +73,8 @@ class Environment():
             actions[id, :] = self.drones[id].action
             self.drones[id].action = None
 
-        self.env.step(actions)
+        obs, reward, terminated, truncated, info = self.env.step(actions)
+        return obs
 
 
     def addObstacle(self, urdf, position, rotation):
