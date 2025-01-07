@@ -22,7 +22,8 @@ class Environment():
             If initialized while there is no running PyBullet instance.
         """
         # Connect to a running pybullet instance (gym_pybullet_drones starts one, we want to connect to it)
-        self.pyb_client_id = p.connect(p.SHARED_MEMORY)
+        p.connect(p.SHARED_MEMORY)
+        self.pyb_client_id = env.getPyBulletClient()
 
         self.env = env
         self.dt = 1 / env.CTRL_FREQ
