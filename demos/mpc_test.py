@@ -166,7 +166,7 @@ def run(
                 target_pos=target_pos,
                 # target_pos=INIT_XYZS[j, :] + TARGET_POS[wp_counters[j], :],
                 target_rpy=target_rpy
-        )
+        ).reshape((1, 4))
 
         # Logging
         # print(f"Predicted next state: {next_state}")
