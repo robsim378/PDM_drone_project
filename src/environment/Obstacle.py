@@ -2,7 +2,6 @@ import numpy as np
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 
 from src.environment.Shape import Shape
-from src.environment.Environment import Environment
 
 class Obstacle():
     """ Class defining an obstacle in an environment. """
