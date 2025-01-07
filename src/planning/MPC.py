@@ -115,7 +115,7 @@ class MPC():
 
         for k in range(self.horizon):
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
-            cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
+            # cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
             # cost += cp.quad_form(self.u[:, k], self.weight_input)
 
         return cost
