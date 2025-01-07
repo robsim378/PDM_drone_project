@@ -137,7 +137,7 @@ def run(
         # Loop for multiple drones. We don't have multiple drones, but removing this is a hassle with no real benefit.
         for j in range(num_drones):
             # obs, reward, terminated, truncated, info = env.step(control_input)
-            environment.advanceSimulation()
+            obs = environment.advanceSimulation()
 
             # Determine the trajectory. For now just hover up and down
             target_z = 0.5 * np.sin(i/10) + 1
