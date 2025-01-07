@@ -152,9 +152,10 @@ class MPC():
 
         # Solve the optimization problem
         problem = cp.Problem(cp.Minimize(cost), constraints)
-        problem.solve(solver=cp.OSQP, verbose=False)
+        problem.solve(solver=cp.OSQP, verbose=True)
 
         # Logging
+        print(f"x = {self.x}")
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
         print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
         # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
