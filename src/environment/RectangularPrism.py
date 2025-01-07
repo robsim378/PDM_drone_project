@@ -1,4 +1,5 @@
 import numpy as np
+import cvxpy as cp
 from environment.Shape import Shape
 
 class RectangularPrism(Shape):
@@ -16,14 +17,38 @@ class RectangularPrism(Shape):
         self.width = width
         self.height = height
 
-    def getCollisionConstraints(self, relative_pos, inflationAmount):
+
+    def getCollisionConstraints(self, relative_pos, paddingAmount):
+
         """ For more details, see the docstring in Shape for this function. """
 
-        raise NotImplementedError("This hasn't been implemented yet.")
+
+        x = cp.Variable()
+        y = cp.Variable()
+        z = cp.Variable()
+
+        min_x = paddingAmount + relative_pos[0] + self.length/2
+
+        min_y = paddingAmount + relative_pos[1] + self.width/2
+
+        min_z = paddingAmount + relative_pos[2] + self.height/2
+
+        constraints = [x >= min_x,
+                        y >= min_y,
+                        z >= min_z]
+        
+        return constraints
+
+        # raise NotImplementedError("This hasn't been implemented yet.")
+
+
 
     def getURDF(self):
+
         """ For more details, see the docstring in Shape for this function. """
 
+
         raise NotImplementedError("This hasn't been implemented yet.")
+
 
 

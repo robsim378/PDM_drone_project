@@ -14,10 +14,22 @@ class Sphere(Shape):
         """
         self.radius = radius
 
-    def getCollisionConstraints(self, relative_pos, inflationAmount):
+    def getCollisionConstraints(self, relative_pos, paddingAmount):
         """ For more details, see the docstring in Shape for this function. """
+        
+        x = cp.Variable()
+        y = cp.Variable()
+        z = cp.Variable()
 
-        raise NotImplementedError("This hasn't been implemented yet.")
+        min_x = self.radius + paddingAmount
+        min_y = self.radius + paddingAmount
+        min_z = self.radius + paddingAmount
+
+        constraints = [x >= min_x,
+                        y >= min_y,
+                        z >= min_z]
+
+        # raise NotImplementedError("This hasn't been implemented yet.")
 
 
     def getURDF(self):
