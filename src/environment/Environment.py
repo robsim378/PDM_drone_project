@@ -2,9 +2,7 @@ import numpy as np
 import cvxpy
 import pybullet as p
 
-from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
-from gym_pybullet_drones.envs.BaseAviary import BaseAviary
-
+from src.drone.DroneState import DroneState
 from src.environment.Obstacle import Obstacle
 
 class Environment():
@@ -29,11 +27,13 @@ class Environment():
         self.env = env
         self.dt = 1 / env.CTRL_FREQ
 
+        self.drones = {}
+
+
         # TODO: Figure out what's going on here
 
         # if self.pyb_client_id == -1:
         #     raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
-
 
         self.obstacles = []
         #Array of objects (obst + drone etc) in the environment represented by their pybullet id's
@@ -57,9 +57,32 @@ class Environment():
         state = DroneState(pose, velocity, None)
         return state
 
+    def addDrone(self, drone):
+        """ Add a Drone to the list of drones in this environment. 
+
+        Parameters
+        ----------
+        Drone drone :
+            The Drone to add to the list.
+        """
+        self.drones[drone.id] = drone
+
+    def advanceSimulation(self):
+        """ Advance the simulation, executing the queued actions for all drones. """
+
+        # Initialize empty actions for all drones
+        actions = np.zeros((len(self.drones), 4))
+
+        # Get queued actions for all Drones and reset them
+        for id in self.drones.keys():
+            actions[id, :] = self.drones[id].action
+            self.drones[id].action = None
+
+        obs, reward, terminated, truncated, info = self.env.step(actions)
+        return obs
 
 
-    def addObstacle(self, urdf, position, rotation, scale):
+    def addObstacle(self, urdf, position, rotation):
         """ Add an obstacle to the environment.
 
         Parameters
@@ -87,7 +110,14 @@ class Environment():
         # Add id to objects
         self.objects += [obj_id]
 
-    def getCollisionConstraints(self, position, inflationAmount):
+    def initializeWarehouse(self):
+        """ Place obstacles to create a warehouse environment for the demo. """
+
+        # TODO: Once addObstacle is implemented, write this function to add all the necessary obstacles for the warehouse environment.
+        pass
+
+
+    def checkCollision(self, position, inflationAmount):
         """ Checks if the requested space is occupied.
 
         Parameters
