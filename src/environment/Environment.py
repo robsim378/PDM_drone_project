@@ -36,6 +36,7 @@ class Environment():
         #     raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
 
         self.obstacles = []
+        self.ghost_tail = []
 
 
     def getDroneState(self, drone_id):
@@ -102,6 +103,35 @@ class Environment():
         # TODO: Once addObstacle is implemented, write this function to add all the necessary obstacles for the warehouse environment.
         pass
 
+    def initMPCTail(self, tail_len):
+        """ Initialize the ghost tail for MPC. 
+
+        Parameters
+        ----------
+        int tail_len :
+            The length of the tail
+        """
+
+        visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.02, rgbaColor=[0.2, 1, 1, 0.5])
+        for _ in range(tail_len):
+            obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])
+            self.ghost_tail.append(obj_id)
+
+    def drawMPCTail(self, tail):
+        """ Render the MPC tail as a series of ghost objects. 
+
+        Parameters
+        ----------
+        DroneState[] tail :
+            A list of DroneStates to display.
+        """
+        
+        for i, state in enumerate(tail):  # `mpc_tail_positions` is a list of new positions
+            p.resetBasePositionAndOrientation(
+                self.ghost_tail[i], 
+                state.pose[:3], 
+                p.getQuaternionFromEuler(np.array([0, 0, state.pose[3]]))
+            )
 
     def checkCollision(self, position, inflationAmount):
         """ Checks if the requested space is occupied.

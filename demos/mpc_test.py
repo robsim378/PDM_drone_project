@@ -124,12 +124,16 @@ def run(
     environment.addDrone(drone)
 
     # Initialize the controller
-    mpc_controller = MPC(drone, drone.model, environment, environment.dt, 10)
+    horizon = 10
+    mpc_controller = MPC(drone, drone.model, environment, environment.dt, horizon)
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
 
     control_input = np.zeros((1, 4))
     drone.action = control_input
+
+    # Initialize the ghost tail for MPC
+    environment.initMPCTail(horizon+1)
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
@@ -138,6 +142,7 @@ def run(
         for j in range(num_drones):
             # obs, reward, terminated, truncated, info = env.step(control_input)
             obs = environment.advanceSimulation()
+
 
             # Determine the trajectory. For now just hover up and down
             target_z = 0.5 * np.sin(i/10) + 1
@@ -151,6 +156,12 @@ def run(
 
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
             next_waypoint, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+
+            state_tail = []
+            for state in tail.T:
+                state_tail.append(DroneState(state[:4], np.array([0, 0, 0, 0]), None))
+
+            environment.drawMPCTail(state_tail)
 
             # Compute inputs to the PID controller based on the output from MPC
             target_pos = next_waypoint[:3]
