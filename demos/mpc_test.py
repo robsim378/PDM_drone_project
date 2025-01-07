@@ -158,16 +158,12 @@ def run(
             target_rpy[2] += next_waypoint[3]
 
             # Send the control inputs to MPC
-            # control_input[j, :], _, _ = pid_controller.computeControlFromState(
             drone.action = pid_controller.computeControlFromState(
                 control_timestep=env.CTRL_TIMESTEP,
                 state=obs[j],
-                # target_pos=np.hstack(next_waypoint, INIT_XYZS[j, 2]]),
                 target_pos=target_pos,
-                # target_pos=INIT_XYZS[j, :] + TARGET_POS[wp_counters[j], :],
                 target_rpy=target_rpy
             )[0]
-            print(drone.action)
 
         # Logging
         # print(f"Predicted next state: {next_state}")
