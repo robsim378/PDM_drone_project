@@ -1,6 +1,6 @@
 import numpy as np
 import cvxpy as cp
-from environment.Shape import Shape
+from src.environment.Shape import Shape
 
 class RectangularPrism(Shape):
     """ Class representing a rectangular prism. Implementation of the Shape abstract class."""

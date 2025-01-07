@@ -1,10 +1,10 @@
 import numpy as np
-from environment.Shape import Shape
+from src.environment.Shape import Shape
 
 class Sphere(Shape):
     """ Class representing a sphere. Implementation of the Shape abstract class."""
 
-    def __init__(self, radius):
+    def __init__(self, radius=10):
         """ Initialize a Sphere.
 
         Parameters

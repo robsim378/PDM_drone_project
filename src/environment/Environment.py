@@ -4,6 +4,7 @@ import pybullet as p
 
 from src.drone.DroneState import DroneState
 from src.environment.Obstacle import Obstacle
+from src.environment.Sphere import Sphere
 
 class Environment():
     """ Class representing the environment a drone operates in. """
@@ -102,14 +103,15 @@ class Environment():
 
         #pybullet predetermined shapes
         # obj_id = p.createCollisionShape(p.GEOM_SPHERE, physicsClientId=self.pyb_client_id)
-        pose = np.zeros([6])
-        pose[:3] = position
-        pose[3] = rotation
-        obstacle = Obstacle(pose, obj_id)
-        # TODO: Add to the internal list of Obstacles
-        self.obstacles += [obstacle]
+
         # Add id to objects
         self.objects += [obj_id]
+
+        #NOTE: this part doesnt seem to be doing anything, but it doesn't break anything either
+        # TODO: Add to the internal list of Obstacles
+        obstacle = Obstacle(position, obj_id, shape=Sphere)
+        # print(f"obstacle {obj_id} added at {position}")
+        self.obstacles += [obstacle]
 
     def initializeWarehouse(self):
         """ Place obstacles to create a warehouse environment for the demo. """

@@ -30,7 +30,7 @@ class Obstacle():
         # If the obstacle is static, the trajectory should always be 0.
         # NOTE: We need to make sure that the trajectory is defined entirely in terms of
         # cvxpy functions so that it can be used in constraints in the solver.
-        if self.trajectory is None:
+        if trajectory is None:
             self.trajectory = lambda x: 0
         else:
             self.trajectory = trajectory
@@ -63,6 +63,7 @@ class Obstacle():
         #NOTE: Not sure if this is how we use the trajectory function so double check. 
         # We said trajectory would be offsets of obstacle's position, 
         # so add it to the obstacle's initial pose to get pose at time t?
+        
         drone_relative_position = drone_global_position - obstacle_global_position    #The point to be checked for collision relative to this obstacle's center point
         return self.shape.getCollisionConstraints(relative_pos, paddingAmount)
 
