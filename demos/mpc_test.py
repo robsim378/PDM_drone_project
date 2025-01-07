@@ -121,6 +121,7 @@ def run(
 
     # Initialize the Drone 
     drone = Drone(mixer, environment)
+    environment.addDrone(drone)
 
     # Initialize the controller
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, 10)
