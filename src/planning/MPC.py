@@ -156,7 +156,7 @@ class MPC():
 
         # Logging
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
-        print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
+        # print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
         # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
 
         # Return the next input, predicted next state, and tail
