@@ -128,7 +128,8 @@ def run(
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
 
-    control_input = np.zeros((1, 4))
+    control_input = np.zeros((4))
+    drone.action = control_input
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):

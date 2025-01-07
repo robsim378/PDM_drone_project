@@ -146,6 +146,9 @@ class MPC():
         x_init = np.hstack((initial_state.pose, initial_state.velocity))
         x_target = np.hstack((target_state.pose, target_state.velocity))
 
+        print(f"x_init = {x_init}")
+        print(f"x_target = {x_target}")
+
         # Initialize the cost and constraints
         constraints = self.getConstraints(x_init)
         cost = self.getCost(x_target)
@@ -155,7 +158,7 @@ class MPC():
         problem.solve(solver=cp.OSQP, verbose=False)
 
         # Logging
-        print(f"x = {self.x.value}")
+        # print(f"x = {self.x.value}")
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
         print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
         # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
