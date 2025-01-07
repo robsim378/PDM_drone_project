@@ -95,6 +95,12 @@ class Environment():
 
         # TODO: Add to the internal list of Obstacles
 
+    def initializeWarehouse(self):
+        """ Place obstacles to create a warehouse environment for the demo. """
+
+        # TODO: Once addObstacle is implemented, write this function to add all the necessary obstacles for the warehouse environment.
+        pass
+
 
     def checkCollision(self, position, inflationAmount):
         """ Checks if the requested space is occupied.
