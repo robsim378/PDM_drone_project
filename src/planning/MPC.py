@@ -33,7 +33,7 @@ class MPC():
         # Weights for the input, position, and velocity.
         # self.weight_input = 0.01 * np.eye(4) # Weight on the input
         self.weight_position = 1.0*np.eye(4) # Weight on the position
-        # self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
+        self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
 
 
     def getConstraints(self, initial_state):
@@ -115,7 +115,7 @@ class MPC():
 
         for k in range(self.horizon):
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
-            # cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
+            cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
             # cost += cp.quad_form(self.u[:, k], self.weight_input)
 
         return cost
@@ -156,7 +156,7 @@ class MPC():
 
         # Logging
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
-        # print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
+        print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
         # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
 
         # Return the next input, predicted next state, and tail
