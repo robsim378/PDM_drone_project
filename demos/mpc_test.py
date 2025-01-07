@@ -166,7 +166,7 @@ def run(
                 target_pos=target_pos,
                 # target_pos=INIT_XYZS[j, :] + TARGET_POS[wp_counters[j], :],
                 target_rpy=target_rpy
-            )
+            )[0]
             print(drone.action)
 
         # Logging
