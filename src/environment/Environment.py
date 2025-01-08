@@ -4,6 +4,7 @@ import pybullet as p
 
 from src.drone.DroneState import DroneState
 from src.environment.Obstacle import Obstacle
+from src.environment.Sphere import Sphere
 
 class Environment():
     """ Class representing the environment a drone operates in. """
@@ -22,7 +23,8 @@ class Environment():
             If initialized while there is no running PyBullet instance.
         """
         # Connect to a running pybullet instance (gym_pybullet_drones starts one, we want to connect to it)
-        self.pyb_client_id = p.connect(p.SHARED_MEMORY)
+        p.connect(p.SHARED_MEMORY)
+        self.pyb_client_id = env.getPyBulletClient()
 
         self.env = env
         self.dt = 1 / env.CTRL_FREQ
@@ -36,6 +38,11 @@ class Environment():
         #     raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
 
         self.obstacles = []
+        #Array of objects (obst + drone etc) in the environment represented by their pybullet id's
+        self.objects = []
+        # self.drone_id = -1
+        # self.env_id = p_id
+
         self.ghost_tail = []
 
 
@@ -93,9 +100,19 @@ class Environment():
         # NOTE: Maybe just take a Shape object and include the URDF file as part of that? Would probably be easier than determining shape from URDF
 
         # TODO: Figure out if position and rotation have to be lists or if ndarrays are acceptable as well
-        p.loadURDF(urdf, position, rotation, physicsClientId=self.pyb_client_id)
+        obj_id = p.loadURDF(urdf, position, rotation, globalScaling=1 ,physicsClientId=self.pyb_client_id)
 
+        #pybullet predetermined shapes
+        # obj_id = p.createCollisionShape(p.GEOM_SPHERE, physicsClientId=self.pyb_client_id)
+
+        # Add id to objects
+        self.objects += [obj_id]
+
+        #NOTE: this part doesnt seem to be doing anything, but it doesn't break anything either
         # TODO: Add to the internal list of Obstacles
+        obstacle = Obstacle(position, obj_id, shape=Sphere)
+        # print(f"obstacle {obj_id} added at {position}")
+        self.obstacles += [obstacle]
 
     def initializeWarehouse(self):
         """ Place obstacles to create a warehouse environment for the demo. """
@@ -150,4 +167,8 @@ class Environment():
         """
 
         # Loop through all obstacles and check if there is a collision with any of them.
-        raise NotImplementedError("This hasn't been implemented yet.")
+        # raise NotImplementedError("This hasn't been implemented yet.")
+        constraints = []
+        for obstacle in self.obstacles:
+            constraints += obstacle.checkCollision(position, inflationAmount)
+        return constraints
