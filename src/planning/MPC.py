@@ -31,7 +31,7 @@ class MPC():
         self.u = cp.Variable((self.model.B.shape[1], self.horizon))
 
         # Weights for the input, position, and velocity.
-        # self.weight_input = 0.01 * np.eye(4) # Weight on the input
+        self.weight_input = 0.01 * np.eye(4) # Weight on the input
         self.weight_position = 1.0*np.eye(4) # Weight on the position
         self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
 
@@ -67,7 +67,7 @@ class MPC():
             constraints += [self.x[6, k] <= 100] # Max z velocity
 
             if k < self.horizon:
-                constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
+                # constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
 
                 # TODO: make this next line actually correct (this is not a robust rotational error calculation)
                 constraints += [cp.abs(self.x[3, k+1] - self.x[3, k]) <= 0.1] # Max rotation per timestep
@@ -85,11 +85,11 @@ class MPC():
             #     constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
 
             # dynamics
-            # constraints += [self.x[:, k+1] == (
-            #     self.model.A @ self.x[:, k] + 
-            #     self.model.B @ self.u[:, k] + 
-            #     g_term
-            # )] 
+            constraints += [self.x[:, k+1] == (
+                self.model.A @ self.x[:, k] + 
+                self.model.B @ self.u[:, k] + 
+                g_term
+            )] 
 
         constraints += [self.x[:, 0] == initial_state]    # Initial position
         
@@ -116,7 +116,7 @@ class MPC():
         for k in range(self.horizon):
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
             cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
-            # cost += cp.quad_form(self.u[:, k], self.weight_input)
+            cost += cp.quad_form(self.u[:, k], self.weight_input)
 
         return cost
 

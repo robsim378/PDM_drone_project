@@ -155,7 +155,7 @@ def run(
             current_state = drone.getState()
 
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
-            next_waypoint, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+            next_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
 
             state_tail = []
             for state in tail.T:
@@ -164,9 +164,9 @@ def run(
             environment.drawMPCTail(state_tail)
 
             # Compute inputs to the PID controller based on the output from MPC
-            target_pos = next_waypoint[:3]
+            target_pos = next_state[:3]
             target_rpy = INIT_RPYS[j, :]
-            target_rpy[2] += next_waypoint[3]
+            target_rpy[2] += next_state[3]
 
             # Send the control inputs to MPC
             drone.action = pid_controller.computeControlFromState(
