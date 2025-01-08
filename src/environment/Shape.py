@@ -5,7 +5,7 @@ class Shape(ABC):
     """ Abstract class representing a 3D shape. """
 
     @abstractmethod
-    def getCollisionConstraints(self, relative_pos, paddingAmount):
+    def getCollisionConstraints(self, relative_position, padding_amount):
         """ Computes and returns the cvxpy constraints for a Shape 
 
         Parameters

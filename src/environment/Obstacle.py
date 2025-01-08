@@ -6,12 +6,12 @@ from src.environment.Shape import Shape
 class Obstacle():
     """ Class defining an obstacle in an environment. """
     
-    def __init__(self, position, pyb_obj_id, shape=None, trajectory=None):
+    def __init__(self, position, pyb_obj_id, shape, trajectory=None):
         """ Initialize an Obstacle.
         
         Parameters
         ----------
-        ndarray(6,) pose :
+        ndarray(3,) position :
             The position of the obstacle. For dynamic obstacles, this is their initial pose.
         Shape shape : 
             The shape of the obstacle.
@@ -31,18 +31,18 @@ class Obstacle():
         # NOTE: We need to make sure that the trajectory is defined entirely in terms of
         # cvxpy functions so that it can be used in constraints in the solver.
         if trajectory is None:
-            self.trajectory = lambda x: 0
+            self.trajectory = lambda x: np.array([0, 0, 0])
         else:
             self.trajectory = trajectory
 
-    def getCollisionConstraints(self, drone_global_position, paddingAmount, time=0):
+    def getCollisionConstraints(self, drone_global_position, padding_amount, time=0):
         """ Checks if the obstacle will occupy a certain position at the specified time.
 
         Parameters
         ----------
         ndarray(3,) drone_global_position :
             The position to check for a collision in, relative to the environment
-        float paddingAmount :
+        float padding_amount :
             The amount to inflate the object by in all directions. Creates a safety buffer.
         float time :
             The time to check for a collision at. For static obstacles, leave this unset.
@@ -59,13 +59,17 @@ class Obstacle():
         # as the position.
 
         # Obstacle pose w.r.t world at time t
+        # obstacle_global_position = self.position + self.trajectory(time) 
         obstacle_global_position = self.position + self.trajectory(time) 
         #NOTE: Not sure if this is how we use the trajectory function so double check. 
         # We said trajectory would be offsets of obstacle's position, 
         # so add it to the obstacle's initial pose to get pose at time t?
         
         drone_relative_position = drone_global_position - obstacle_global_position    #The point to be checked for collision relative to this obstacle's center point
-        return self.shape.getCollisionConstraints(relative_pos, paddingAmount)
+        # return self.shape.getCollisionConstraints(relative_pos, padding_amount)
+
+        return self.shape.getCollisionConstraints(drone_relative_position, padding_amount)
+        # return self.shape.getCollisionConstraints(drone_global_position, obstacle_global_position, padding_amount)
 
     def getDroneState(self, aviary_env: CtrlAviary):
         """ Returns the current state of the Drone
