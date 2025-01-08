@@ -81,8 +81,11 @@ class MPC():
             # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
             # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
 
-            constraints += [cp.abs(self.u[:3, k] >= np.array([max_acceleration] * 3)]  # Acceleration limits
-            constraints += [cp.abs(self.u[3, k] >= max_angular_acceleration]  # Acceleration limits
+            max_acceleration = 1
+            max_angular_acceleration = 1
+
+            constraints += [cp.abs(self.u[:3, k]) <= np.array([max_acceleration] * 3)]  # Acceleration limits
+            constraints += [cp.abs(self.u[3, k]) <= max_angular_acceleration]  # Angular acceleration limits
                 
             # if k < self.horizon - 1:
             #     constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
