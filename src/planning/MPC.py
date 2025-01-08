@@ -31,7 +31,7 @@ class MPC():
         self.u = cp.Variable((self.model.B.shape[1], self.horizon))
 
         # Weights for the input, position, and velocity.
-        # self.weight_input = 0.01 * np.eye(4) # Weight on the input
+        self.weight_input = 0.01 * np.eye(4) # Weight on the input
         self.weight_position = 1.0*np.eye(4) # Weight on the position
         self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
 
@@ -81,7 +81,7 @@ class MPC():
             # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
             # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
 
-            max_acceleration = 20
+            max_acceleration = 1
             max_angular_acceleration = 1
 
             max_velocity = 1
@@ -131,8 +131,8 @@ class MPC():
 
         for k in range(self.horizon):
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
-            # cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
-            # cost += cp.quad_form(self.u[:, k], self.weight_input)
+            cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
+            cost += cp.quad_form(self.u[:, k], self.weight_input)
 
         return cost
 
@@ -178,6 +178,9 @@ class MPC():
         print(f"zs: \n{self.x[2].value}")
         print(f"zdots: \n{self.x[6].value}")
         print(f"zdotdots: \n{self.u[2].value}")
+        print(f"xs: \n{self.x[0].value}")
+        print(f"xdots: \n{self.x[4].value}")
+        print(f"xdotdots: \n{self.u[0].value}")
 
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
         print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")

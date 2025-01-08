@@ -93,7 +93,7 @@ def run(
                     )
 
     # Test adding obstacles
-    p.loadURDF("sphere2.urdf",
+    sphere = p.loadURDF("sphere2.urdf",
                    [0, 2, .5],
                    p.getQuaternionFromEuler([0, 0, 0]),
                    physicsClientId=PYB_CLIENT
@@ -135,6 +135,17 @@ def run(
     # Initialize the ghost tail for MPC
     environment.initMPCTail(horizon+1)
 
+
+
+
+    p.setGravity(0, 0, 0)
+
+    link_index = -1  # Use -1 for the base object or specify a link index
+    sphere_mass = p.getDynamicsInfo(sphere, link_index)[0]  # Get the object's mass
+
+
+
+
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
 
@@ -157,8 +168,24 @@ def run(
             # Get the drone's current state
             current_state = drone.getState()
 
+
+
+
+
+            pos, orn = p.getBasePositionAndOrientation(sphere)
+            linear_vel, angular_vel = p.getBaseVelocity(sphere)
+            sphere_state = DroneState(np.append(np.array(pos), p.getEulerFromQuaternion(orn)[2]), np.append(np.array(linear_vel), angular_vel[2]), None)
+
+
+
+
+
+
+
+
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
-            next_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+            # next_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+            next_input, next_state, tail = mpc_controller.getOutput(sphere_state, target_state)
 
             state_tail = []
             for state in tail.T:
@@ -166,18 +193,33 @@ def run(
 
             environment.drawMPCTail(state_tail)
 
+
+            # Calculate force
+            acceleration = next_input[:3]
+            force = [a * sphere_mass for a in acceleration]
+
+            # Apply the force
+            p.applyExternalForce(
+                objectUniqueId=sphere,
+                linkIndex=link_index,
+                forceObj=force,
+                posObj=[0, 0, 0],  # Apply at the center of mass
+                flags=p.WORLD_FRAME  # Use world or local frame as needed
+            )
+
+
             # Compute inputs to the PID controller based on the output from MPC
-            target_pos = tail[2, :3]
-            target_rpy = INIT_RPYS[j, :]
-            target_rpy[2] += tail[2, 3]
+            # target_pos = tail[2, :3]
+            # target_rpy = INIT_RPYS[j, :]
+            # target_rpy[2] += tail[2, 3]
 
             # Send the control inputs to MPC
-            drone.action = pid_controller.computeControlFromState(
-                control_timestep=env.CTRL_TIMESTEP,
-                state=obs[j],
-                target_pos=target_pos,
-                target_rpy=target_rpy
-            )[0]
+            # drone.action = pid_controller.computeControlFromState(
+            #     control_timestep=env.CTRL_TIMESTEP,
+            #     state=obs[j],
+            #     target_pos=target_pos,
+            #     target_rpy=target_rpy
+            # )[0]
 
         # Logging
         # print(f"Predicted next state: {next_state}")
