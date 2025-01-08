@@ -145,8 +145,9 @@ def run(
 
 
             # Determine the trajectory. For now just hover up and down
-            target_z = 0.5 * np.sin(i/10) + 1
-            target_x = -2.0
+            # target_z = 0.5 * np.sin(i/10) + 1
+            target_z = 1.5
+            target_x = -1.0
             target_y = -1.0
             target_yaw = 0
             target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)

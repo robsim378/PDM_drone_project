@@ -90,8 +90,8 @@ class MPC():
             # constraints += [cp.abs(self.x[4:7, k]) <= np.array([max_velocity] * 3)]  # Velocity limits
             # constraints += [cp.abs(self.x[7, k]) <= max_angular_velocity]  # Angular velocity limits
 
-            constraints += [cp.abs(self.u[:3, k]) <= np.array([max_acceleration] * 3)]  # Acceleration limits
-            constraints += [cp.abs(self.u[3, k]) <= max_angular_acceleration]  # Angular acceleration limits
+            # constraints += [cp.abs(self.u[:3, k]) <= np.array([max_acceleration] * 3)]  # Acceleration limits
+            # constraints += [cp.abs(self.u[3, k]) <= max_angular_acceleration]  # Angular acceleration limits
                 
             # if k < self.horizon - 1:
             #     constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
@@ -129,7 +129,7 @@ class MPC():
 
         for k in range(self.horizon):
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
-            cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
+            # cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
             # cost += cp.quad_form(self.u[:, k], self.weight_input)
 
         return cost
@@ -169,8 +169,7 @@ class MPC():
         problem.solve(solver=cp.OSQP, verbose=False)
 
         # Logging
-        # print(f"Inputs: {self.u.value}")
-        print(f"B matrix: {self.model.B}")
+        print(f"Inputs: {self.u.value}")
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
         print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
         # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
