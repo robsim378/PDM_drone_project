@@ -99,7 +99,7 @@ def run(
                    physicsClientId=PYB_CLIENT,
                    globalScaling=0.1,
                    )
-    p.changeDynamics(sphere, -1, mass=0.1)  # Set mass to 10 kg
+    p.changeDynamics(sphere, -1, mass=0.1)
 
     ##### Model Predictive Control setup ##########################
     # Initialize the simulation and do a single timestep to ensure everything is initialized properly
@@ -140,10 +140,10 @@ def run(
 
 
 
+
     p.setGravity(0, 0, 0)
 
-    link_index = -1  # Use -1 for the base object or specify a link index
-    sphere_mass = p.getDynamicsInfo(sphere, link_index)[0]  # Get the object's mass
+    sphere_mass = p.getDynamicsInfo(sphere, -1)[0]  # Get the object's mass
 
 
 
@@ -203,7 +203,7 @@ def run(
             # Apply the force
             p.applyExternalForce(
                 objectUniqueId=sphere,
-                linkIndex=link_index,
+                linkIndex=-1,
                 forceObj=force,
                 posObj=[0, 0, 0],  # Apply at the center of mass
                 flags=p.WORLD_FRAME  # Use world or local frame as needed
