@@ -147,8 +147,10 @@ def run(
             # Determine the trajectory. For now just hover up and down
             # target_z = 0.5 * np.sin(i/10) + 1
             target_z = 1.5
-            target_x = -1.0
-            target_y = -1.0
+            # target_x = -1.0
+            # target_y = -1.0
+            target_x = 0
+            target_y = 0
             target_yaw = 0
             target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
 
@@ -165,9 +167,9 @@ def run(
             environment.drawMPCTail(state_tail)
 
             # Compute inputs to the PID controller based on the output from MPC
-            target_pos = next_state[:3]
+            target_pos = tail[2, :3]
             target_rpy = INIT_RPYS[j, :]
-            target_rpy[2] += next_state[3]
+            target_rpy[2] += tail[2, 3]
 
             # Send the control inputs to MPC
             drone.action = pid_controller.computeControlFromState(
