@@ -81,7 +81,7 @@ class MPC():
             # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
             # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
 
-            max_acceleration = 1
+            max_acceleration = 10
             max_angular_acceleration = 1
 
             max_velocity = 1

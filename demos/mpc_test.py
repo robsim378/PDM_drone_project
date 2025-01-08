@@ -96,8 +96,10 @@ def run(
     sphere = p.loadURDF("sphere2.urdf",
                    [0, 2, .5],
                    p.getQuaternionFromEuler([0, 0, 0]),
-                   physicsClientId=PYB_CLIENT
+                   physicsClientId=PYB_CLIENT,
+                   globalScaling=0.1,
                    )
+    p.changeDynamics(sphere, -1, mass=0.1)  # Set mass to 10 kg
 
     ##### Model Predictive Control setup ##########################
     # Initialize the simulation and do a single timestep to ensure everything is initialized properly
