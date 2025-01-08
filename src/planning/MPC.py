@@ -66,13 +66,13 @@ class MPC():
             constraints += [self.x[2, k] <= 5] # Max z position
             constraints += [self.x[6, k] <= 100] # Max z velocity
 
-            if k < self.horizon:
+            # if k < self.horizon:
                 # constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
 
                 # TODO: make this next line actually correct (this is not a robust rotational error calculation)
-                constraints += [cp.abs(self.x[3, k+1] - self.x[3, k]) <= 0.1] # Max rotation per timestep
+                # constraints += [cp.abs(self.x[3, k+1] - self.x[3, k]) <= 0.1] # Max rotation per timestep
                 
-                constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
+                # constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
 
 
             # constraints += [self.u[0, k] >= 0.01]    # Min thrust
@@ -80,9 +80,13 @@ class MPC():
             #
             # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
             # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
+
+            constraints += [cp.abs(self.u[:3, k] >= np.array([max_acceleration] * 3)]  # Acceleration limits
+            constraints += [cp.abs(self.u[3, k] >= max_angular_acceleration]  # Acceleration limits
                 
             # if k < self.horizon - 1:
             #     constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
+
 
             # dynamics
             constraints += [self.x[:, k+1] == (
@@ -90,6 +94,7 @@ class MPC():
                 self.model.B @ self.u[:, k] + 
                 g_term
             )] 
+
 
         constraints += [self.x[:, 0] == initial_state]    # Initial position
         
