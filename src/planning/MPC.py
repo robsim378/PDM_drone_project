@@ -60,11 +60,11 @@ class MPC():
         max_thrust_rate = 1
 
         for k in range(self.horizon):
-            constraints += [self.x[2, k] >= 0] # Min z position
-            constraints += [self.x[6, k] >= -100] # Min z velocity
-
-            constraints += [self.x[2, k] <= 5] # Max z position
-            constraints += [self.x[6, k] <= 100] # Max z velocity
+            # constraints += [self.x[2, k] >= 0] # Min z position
+            # constraints += [self.x[6, k] >= -100] # Min z velocity
+            #
+            # constraints += [self.x[2, k] <= 5] # Max z position
+            # constraints += [self.x[6, k] <= 100] # Max z velocity
 
             # if k < self.horizon:
                 # constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
@@ -83,6 +83,12 @@ class MPC():
 
             max_acceleration = 1
             max_angular_acceleration = 1
+
+            max_velocity = 1
+            max_angular_velocity = 1
+
+            constraints += [cp.abs(self.x[4:7, k]) <= np.array([max_velocity] * 3)]  # Velocity limits
+            constraints += [cp.abs(self.x[7, k]) <= max_angular_velocity]  # Angular velocity limits
 
             constraints += [cp.abs(self.u[:3, k]) <= np.array([max_acceleration] * 3)]  # Acceleration limits
             constraints += [cp.abs(self.u[3, k]) <= max_angular_acceleration]  # Angular acceleration limits
@@ -163,9 +169,10 @@ class MPC():
         problem.solve(solver=cp.OSQP, verbose=False)
 
         # Logging
+        print(f"Inputs: {self.u.value}")
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
         print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
-        # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
+        print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
 
         # Return the next input, predicted next state, and tail
         return self.u[:, 0].value, self.x[:, 1].value, self.x.value
