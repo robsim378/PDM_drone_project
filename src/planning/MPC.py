@@ -87,8 +87,8 @@ class MPC():
             max_velocity = 1
             max_angular_velocity = 1
 
-            constraints += [cp.abs(self.x[4:7, k]) <= np.array([max_velocity] * 3)]  # Velocity limits
-            constraints += [cp.abs(self.x[7, k]) <= max_angular_velocity]  # Angular velocity limits
+            # constraints += [cp.abs(self.x[4:7, k]) <= np.array([max_velocity] * 3)]  # Velocity limits
+            # constraints += [cp.abs(self.x[7, k]) <= max_angular_velocity]  # Angular velocity limits
 
             constraints += [cp.abs(self.u[:3, k]) <= np.array([max_acceleration] * 3)]  # Acceleration limits
             constraints += [cp.abs(self.u[3, k]) <= max_angular_acceleration]  # Angular acceleration limits
