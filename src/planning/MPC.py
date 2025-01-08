@@ -75,6 +75,10 @@ class MPC():
                 constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
 
 
+            if k == 0:
+                collision_constraints = self.environment.getCollisionConstraints(self.x[:3, k], 0.0)
+                print(collision_constraints[0])
+                constraints += collision_constraints
             # constraints += [self.u[0, k] >= 0.01]    # Min thrust
             # constraints += [self.u[0, k] <= 1]    # Max thrust
             #
@@ -90,6 +94,7 @@ class MPC():
             #     self.model.B @ self.u[:, k] + 
             #     g_term
             # )] 
+
 
         constraints += [self.x[:, 0] == initial_state]    # Initial position
         
@@ -152,7 +157,8 @@ class MPC():
 
         # Solve the optimization problem
         problem = cp.Problem(cp.Minimize(cost), constraints)
-        problem.solve(solver=cp.OSQP, verbose=False)
+        # problem.solve(solver=cp.OSQP, verbose=False)
+        problem.solve(verbose=False)
 
         # Logging
         print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")

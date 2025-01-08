@@ -3,6 +3,7 @@ import cvxpy
 import pybullet as p
 
 from src.drone.DroneState import DroneState
+from src.environment.RectangularPrism import RectangularPrism
 from src.environment.Obstacle import Obstacle
 from src.environment.Sphere import Sphere
 
@@ -85,34 +86,79 @@ class Environment():
         return obs
 
 
-    def addObstacle(self, urdf, position, rotation):
-        """ Add an obstacle to the environment.
+    def addSphere(self, position, radius=0.5):
+        """ Add a spherical obstacle to the environment.
 
         Parameters
         ----------
-        string urdf :
-            The filepath of the URDF file defining the obstacle
+        float radius :
+            The radius of the sphere
         float[3] position :
             The x, y, z coordinates to place the obstacle
-        float[3] rotation :
-            The euler angles defining the orientation of the obstacle
         """
-        # NOTE: Maybe just take a Shape object and include the URDF file as part of that? Would probably be easier than determining shape from URDF
-
-        # TODO: Figure out if position and rotation have to be lists or if ndarrays are acceptable as well
-        obj_id = p.loadURDF(urdf, position, rotation, globalScaling=1 ,physicsClientId=self.pyb_client_id)
-
-        #pybullet predetermined shapes
-        # obj_id = p.createCollisionShape(p.GEOM_SPHERE, physicsClientId=self.pyb_client_id)
+        sphere_id = p.loadURDF("sphere2.urdf",
+                               position,
+                               p.getQuaternionFromEuler([0, 0, 0]),
+                               physicsClientId=self.pyb_client_id,
+                               globalScaling=radius/0.5,    # Default radius is 0.5
+                               )
 
         # Add id to objects
-        self.objects += [obj_id]
+        self.objects += [sphere_id]
 
-        #NOTE: this part doesnt seem to be doing anything, but it doesn't break anything either
-        # TODO: Add to the internal list of Obstacles
-        obstacle = Obstacle(position, obj_id, shape=Sphere)
+        obstacle = Obstacle(position, sphere_id, shape=Sphere(radius))
+
         # print(f"obstacle {obj_id} added at {position}")
         self.obstacles += [obstacle]
+
+
+    def addBox(self, position, length=1, width=1, height=1):
+        """ Add a box obstacle to the environment.
+
+        Parameters
+        ----------
+        float length, width, height :
+            The dimensions of the box
+        float[3] position :
+            The x, y, z coordinates to place the obstacle
+        """
+
+        box = p.createCollisionShape(p.GEOM_BOX, halfExtents = [length/2, width/2, height/2])
+        p.createMultiBody(0, box, basePosition=position, physicsClientId=self.pyb_client_id)
+
+        obstacle = Obstacle(position, box, shape=RectangularPrism(length, width, height, position))
+        self.obstacles += [obstacle]
+
+
+    # def addObstacle(self, type="sphere", position, rotation):
+    #     """ Add an obstacle to the environment.
+    #
+    #     Parameters
+    #     ----------
+    #     string urdf :
+    #         The filepath of the URDF file defining the obstacle
+    #     float[3] position :
+    #         The x, y, z coordinates to place the obstacle
+    #     float[3] rotation :
+    #         The euler angles defining the orientation of the obstacle
+    #     """
+    #     # NOTE: Maybe just take a Shape object and include the URDF file as part of that? Would probably be easier than determining shape from URDF
+    #
+    #     # TODO: Figure out if position and rotation have to be lists or if ndarrays are acceptable as well
+    #
+    #     #pybullet predetermined shapes
+    #     # obj_id = p.createCollisionShape(p.GEOM_SPHERE, physicsClientId=self.pyb_client_id)
+    #
+    #
+    #
+    #     # Add id to objects
+    #     self.objects += [obj_id]
+    #
+    #     #NOTE: this part doesnt seem to be doing anything, but it doesn't break anything either
+    #     # TODO: Add to the internal list of Obstacles
+    #     obstacle = Obstacle(position, obj_id, shape=Sphere(radius=0.5))
+    #     # print(f"obstacle {obj_id} added at {position}")
+    #     self.obstacles += [obstacle]
 
     def initializeWarehouse(self):
         """ Place obstacles to create a warehouse environment for the demo. """
@@ -168,14 +214,14 @@ class Environment():
                                         p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
 
 
-    def checkCollision(self, position, inflationAmount):
+    def getCollisionConstraints(self, position, padding_amount):
         """ Checks if the requested space is occupied.
 
         Parameters
         ----------
         ndarray(3,) position :
             The position to check for a collision
-        float inflationAmount :
+        float padding_amount :
             The amount to inflate the object by in all directions. Creates a safety buffer.
 
         Returns
@@ -188,5 +234,5 @@ class Environment():
         # raise NotImplementedError("This hasn't been implemented yet.")
         constraints = []
         for obstacle in self.obstacles:
-            constraints += obstacle.checkCollision(position, inflationAmount)
+            constraints += obstacle.getCollisionConstraints(position, padding_amount)
         return constraints

@@ -18,29 +18,20 @@ class RectangularPrism(Shape):
         self.height = height
 
 
-    def getCollisionConstraints(self, relative_pos, paddingAmount):
-
+    def getCollisionConstraints(self, relative_position, padding_amount):
+    # def getCollisionConstraints(self, drone_global_position, obstacle_global_position, padding_amount):
         """ For more details, see the docstring in Shape for this function. """
 
+        min_x = padding_amount + self.length/2
+        min_y = padding_amount + self.width/2
+        min_z = padding_amount + self.height/2
 
-        x = cp.Variable()
-        y = cp.Variable()
-        z = cp.Variable()
-
-        min_x = paddingAmount + relative_pos[0] + self.length/2
-
-        min_y = paddingAmount + relative_pos[1] + self.width/2
-
-        min_z = paddingAmount + relative_pos[2] + self.height/2
-
-        constraints = [x >= min_x,
-                        y >= min_y,
-                        z >= min_z]
-        
-        return constraints
-
-        # raise NotImplementedError("This hasn't been implemented yet.")
-
+        # constraints = [cp.abs(drone_global_position[0]) >= min_x + obstacle_global_position[0],
+        #                cp.abs(drone_global_position[1]) >= min_y + obstacle_global_position[1],
+        #                cp.abs(drone_global_position[2]) >= min_z + obstacle_global_position[2]]
+        return [cp.norm(relative_position[0]) >= min_x,
+                       cp.norm(relative_position[1]) >= min_y,
+                       cp.norm(relative_position[2]) >= min_z]
 
 
     def getURDF(self):

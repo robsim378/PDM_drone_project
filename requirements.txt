@@ -1,2 +1,4 @@
 numpy
 cvxpy
+ecos
+scs
