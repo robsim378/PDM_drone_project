@@ -51,7 +51,10 @@ class Drone():
         A = np.eye(8) + A_c * environment.dt
         
         B_c = np.zeros((8,4))
+        # B_c[4,0] = -1 / self.mass
+        # B_c[5,0] = 1 / self.mass
         B_c[6,0] = 1 / self.mass
+        # B_c[7,0] = 1 / self.I_z
         B = B_c * environment.dt
 
         self.model = DynamicalModel(A, B)

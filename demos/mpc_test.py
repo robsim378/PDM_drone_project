@@ -145,9 +145,10 @@ def run(
 
 
             # Determine the trajectory. For now just hover up and down
-            target_z = 0.5 * np.sin(i/10) + 1
-            target_x = -2.0
-            target_y = -1.0
+            # target_z = 0.5 * np.sin(i/10) + 1
+            target_z = 1.0
+            target_x = 1
+            target_y = 0
             target_yaw = 0
             target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
 
@@ -155,26 +156,32 @@ def run(
             current_state = drone.getState()
 
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
-            next_waypoint, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+            control_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
 
+            
+            # Visualize the tail
             state_tail = []
             for state in tail.T:
                 state_tail.append(DroneState(state[:4], np.array([0, 0, 0, 0]), None))
-
             environment.drawMPCTail(state_tail)
 
-            # Compute inputs to the PID controller based on the output from MPC
-            target_pos = next_waypoint[:3]
-            target_rpy = INIT_RPYS[j, :]
-            target_rpy[2] += next_waypoint[3]
 
-            # Send the control inputs to MPC
-            drone.action = pid_controller.computeControlFromState(
-                control_timestep=env.CTRL_TIMESTEP,
-                state=obs[j],
-                target_pos=target_pos,
-                target_rpy=target_rpy
-            )[0]
+            # # Compute inputs to the PID controller based on the output from MPC
+            # target_pos = next_waypoint[:3]
+            # target_rpy = INIT_RPYS[j, :]
+            # target_rpy[2] += next_waypoint[3]
+            #
+            # # Send the control inputs to MPC
+            # drone.action = pid_controller.computeControlFromState(
+            #     control_timestep=env.CTRL_TIMESTEP,
+            #     state=obs[j],
+            #     target_pos=target_pos,
+            #     target_rpy=target_rpy
+            # )[0]
+            
+            # Compute the action for the drone to take
+            action = drone.mixer.input_to_RPM(control_input[0], control_input[1:4])
+            drone.action = action
 
         # Logging
         # print(f"Predicted next state: {next_state}")

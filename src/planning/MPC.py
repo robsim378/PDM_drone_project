@@ -66,30 +66,30 @@ class MPC():
             constraints += [self.x[2, k] <= 5] # Max z position
             constraints += [self.x[6, k] <= 100] # Max z velocity
 
-            if k < self.horizon:
-                constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
-
-                # TODO: make this next line actually correct (this is not a robust rotational error calculation)
-                constraints += [cp.abs(self.x[3, k+1] - self.x[3, k]) <= 0.1] # Max rotation per timestep
-                
-                constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
-
-
-            # constraints += [self.u[0, k] >= 0.01]    # Min thrust
-            # constraints += [self.u[0, k] <= 1]    # Max thrust
+            # if k < self.horizon:
+            #     constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
             #
-            # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
-            # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
+            #     # TODO: make this next line actually correct (this is not a robust rotational error calculation)
+            #     constraints += [cp.abs(self.x[3, k+1] - self.x[3, k]) <= 0.1] # Max rotation per timestep
+            #
+            #     constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
+
+
+            constraints += [self.u[0, k] >= 0.01]    # Min thrust
+            constraints += [self.u[0, k] <= 1]    # Max thrust
+            #
+            constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
+            constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
                 
-            # if k < self.horizon - 1:
-            #     constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
+            if k < self.horizon - 1:
+                constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
 
             # dynamics
-            # constraints += [self.x[:, k+1] == (
-            #     self.model.A @ self.x[:, k] + 
-            #     self.model.B @ self.u[:, k] + 
-            #     g_term
-            # )] 
+            constraints += [self.x[:, k+1] == (
+                self.model.A @ self.x[:, k] + 
+                self.model.B @ self.u[:, k] + 
+                g_term
+            )] 
 
         constraints += [self.x[:, 0] == initial_state]    # Initial position
         
