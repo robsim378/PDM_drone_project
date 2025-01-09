@@ -20,7 +20,6 @@ class DroneState():
 
         # NOTE: We could use the Frame class from RDC. I (Robert) have a refactored version
         # with cleaner code I made that we could use.
-
         self.pose = pose
         self.velocity = velocity
         # NOTE: RPMs probably shouldn't be included here, but it needs more consideration before removing them.
@@ -39,9 +38,8 @@ class DroneState():
         (ndarray(4,), ndarray(4,))
             Positional and rotational errors for pose, positional and rotational errors for velocity
         """
-
-        # NOTE: This is a placeholder I added to make an MPC prototype. This doesn't handle rotational
-        # errors correctly, but I wasn't dealing with those at all.
+        #depending on the fps of the camera other rotational velocity errors  might be handy 
+        #the orientation error doesnt matter much until you arrive there
         pose_error = self.pose - target.pose
         velocity_error = self.velocity - target.velocity
-        return pose_error, velocity_error
+        return pose_error, velocity_error 

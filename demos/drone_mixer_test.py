@@ -3,6 +3,7 @@ This is a test script to test the Mixer class
 """
 
 import os
+import sys
 import time
 import argparse
 from datetime import datetime
@@ -12,6 +13,12 @@ import random
 import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+# To run on Windows it needs this
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
+sys.path.insert(0, parent_dir)
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
@@ -20,6 +27,7 @@ from gym_pybullet_drones.utils.utils import sync, str2bool
 
 from src.drone.Mixer import Mixer
 from src.drone.Drone import Drone
+from src.drone.DroneState import DroneState
 from src.planning.CartesianGraph import CartesianGraph
 from src.planning.Node import Node, Connection
 
@@ -104,35 +112,78 @@ def run(
     mixer = Mixer(mixer_matrix, 3.16e-10, 0.2685, 4070.3, 20000, 65535)
 
     # Initialize the Drone
-    drone = Drone(None, mixer, None, None)
+    drone = Drone(mixer, env)
 
 
     #### Run the simulation ####################################
-    action = np.zeros((num_drones,4))
-    START = time.time()
-    for i in range(0, int(duration_sec*env.CTRL_FREQ)):
+    def test_drone_approaches_target(drone, target_pose):
+        """
+        Test if the drone approaches the target pose over time.
 
-        #### Step the simulation ###################################
-        obs, reward, terminated, truncated, info = env.step(action)
+        Parameters
+        ----------
+        drone : Drone
+            The drone object to be tested.
+        target_pose : ndarray
+            The target position and orientation of the drone [x, y, z, yaw].
+        """
+        target_state = DroneState(target_pose, np.zeros(4), None)
+        x_positions = []
+        y_positions = []
+        z_positions = []
 
-        #### Compute control for the current way point #############
-        # TODO: Obtain the min and max RPM
-        for j in range(num_drones):
-            print(f"Max RPM: {env.MAX_RPM}")
-            # 0.027 is the mass of the drone, taken from the URDF. This should probably be added to the Drone object.
+        k_p_pos = 1.0  # Proportional gain for position control
+        k_d_pos = 0.1  # Derivative gain for velocity damping
+        k_i_pos = 0.01  # Integral gain for eliminating steady-state error
 
-            # This doesn't quite hover, I suspect because the motors must spin up and so it gains a downward 
-            # velocity that it can't remove.
-            action[j, :] = drone.mixer.input_to_RPM(0.027 * 9.81, np.array([0, 0, 0]))
+        k_p_att = 1.0  # Proportional gain for attitude control (roll, pitch, yaw)
+        k_d_att = 0.1  # Derivative gain for attitude damping
+        k_i_att = 0.01  # Integral gain for attitude control
 
+        # Initialize integral and derivative terms for position and attitude
+        integral_pos = np.zeros(4)
+        max_iterations = 10000
+        iterations = 0
 
-        #### Printout ##############################################
-        env.render()
+        current_state = drone.getState()
+        while np.any(np.abs(target_pose-current_state.pose) > 0.1) and iterations < max_iterations:
+            iterations += 1
+            current_state = drone.getState()
+            pose_error, velocity_error = current_state.computeDistance(target_state)
+            integral_pos[:3] += pose_error[:3] * env.CTRL_TIMESTEP
 
-        #### Sync the simulation ###################################
-        if gui:
-            sync(i, START, env.CTRL_TIMESTEP)
+            thrust = drone.mass * 9.81 + k_p_pos * pose_error[2] + k_d_pos * velocity_error[2] + k_i_pos * integral_pos[2]
+            torques = -k_p_att * pose_error[:3] - k_d_att * velocity_error[:3] - k_i_att * integral_pos[:3]
+            control_input = np.hstack((thrust, torques))
+            drone.updateState(control_input)
 
+            x_positions.append(current_state.pose[0])
+            y_positions.append(current_state.pose[1])
+            z_positions.append(current_state.pose[2])
+
+        fig = plt.figure(figsize=(10, 7))
+        ax = fig.add_subplot(111, projection='3d')
+        # Plot the drone's path
+        ax.plot(x_positions, y_positions, z_positions, label='Drone Path')
+
+        # Plot the target position
+        target_position = target_pose[:3]  # Target position (x, y, z)
+        ax.scatter(target_position[0], target_position[1], target_position[2], color='r', s=100, label='Target Position')
+
+        # Label the axes
+        ax.set_xlabel('X Position (m)')
+        ax.set_ylabel('Y Position (m)')
+        ax.set_zlabel('Z Position (m)')
+        ax.set_title('Drone 3D Path Towards Target')
+
+        # Show the legend
+        ax.legend()
+
+        plt.show()
+
+    target_pose = np.array([10.0, 100.0, 5.0, 0.0])
+    test_drone_approaches_target(drone, target_pose)
+   
     #### Close the environment #################################
     env.close()
 

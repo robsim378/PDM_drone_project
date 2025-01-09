@@ -4,6 +4,7 @@ This is a test script to test the core MPC implementation
 
 import os
 import time
+import sys
 import argparse
 from datetime import datetime
 import pdb
@@ -12,6 +13,11 @@ import random
 import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
+
+# Assuming your script is in 'demos' folder inside 'your_project'
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
+sys.path.insert(0, parent_dir)
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
