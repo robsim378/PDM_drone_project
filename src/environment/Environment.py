@@ -44,7 +44,7 @@ class Environment():
         # self.env_id = p_id
 
         self.ghost_tail = []
-
+        self.target_id = -1
 
     def getDroneState(self, drone_id):
         """ Get the current state of the drone from pybullet 
@@ -149,6 +149,24 @@ class Environment():
                 state.pose[:3], 
                 p.getQuaternionFromEuler(np.array([0, 0, state.pose[3]]))
             )
+            
+    def initTarget(self):
+        visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.05, rgbaColor=[0, 1, 0, 0.5])
+        obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])
+        self.target_id = obj_id
+
+    def drawTarget(self, target_state):
+        """ Renders the target state in the simulation
+
+        Parameters
+        ----------
+        DroneState target:
+            The target state to be displayed
+        """
+        p.resetBasePositionAndOrientation(self.target_id, 
+                                        target_state.pose[:3], 
+                                        p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
+
 
     def checkCollision(self, position, inflationAmount):
         """ Checks if the requested space is occupied.

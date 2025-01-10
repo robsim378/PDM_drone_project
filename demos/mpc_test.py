@@ -134,6 +134,7 @@ def run(
 
     # Initialize the ghost tail for MPC
     environment.initMPCTail(horizon+1)
+    environment.initTarget()
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
@@ -162,6 +163,7 @@ def run(
                 state_tail.append(DroneState(state[:4], np.array([0, 0, 0, 0]), None))
 
             environment.drawMPCTail(state_tail)
+            environment.drawTarget(target_state)
 
             # Compute inputs to the PID controller based on the output from MPC
             target_pos = next_waypoint[:3]
