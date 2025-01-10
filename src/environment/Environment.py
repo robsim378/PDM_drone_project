@@ -219,5 +219,5 @@ class Environment():
         """
         costs = 0.
         for obstacle in self.obstacles:
-            costs += obstacle.getDistanceCost(position)
+            costs += obstacle.getInverseDistance(position)
         return costs

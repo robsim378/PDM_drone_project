@@ -78,7 +78,7 @@ class Obstacle():
         constraints = self.shape.getCollisionConstraints(drone_relative_position, padding_amount, binary_vars_list) 
         return constraints
 
-    def getDistanceCost(self, drone_global_position, padding_amount, timestep_index):
+    def getInverseDistance(self, drone_global_position, padding_amount, timestep_index):
         """ Gets the inverse of the distance from a position as a cvxpy expression
 
         Parameters
@@ -104,4 +104,4 @@ class Obstacle():
             if i >= 2:
                 break
 
-        return self.shape.getInverseDistance(drone_relative_position)
+        return self.shape.getInverseDistance(drone_relative_position, padding_amount)
