@@ -1,5 +1,6 @@
 import numpy as np
-import cvxpy as cp
+# import cvxpy as cp
+import pyomo.environ as pyo
 from src.environment.Shape import Shape
 
 class Sphere(Shape):
@@ -15,10 +16,26 @@ class Sphere(Shape):
         """
         self.radius = radius
 
-    def getCollisionConstraints(self, relative_position, padding_amount):
+    def getCollisionConstraints(self, relative_position, padding_amount, binary_vars):
         """ For more details, see the docstring in Shape for this function. """
 
-        return [cp.norm(relative_position, 2) >= (self.radius + padding_amount)]
+        squared_norm = pyo.quicksum(relative_position[i]**2 for i in range(3))
+        min_squared_distance = (self.radius + padding_amount)**2
+
+        constraint = squared_norm >= min_squared_distance
+
+        return([constraint])
+
+    def getInverseDistance(self, relative_position):
+        """ For more details, see the docstring in Shape for this function. """
+        # return 1.0 / cp.norm(relative_position, 2)
+        # return cp.square(cp.norm(relative_position, 2) - self.radius)
+        # return cp.norm(relative_position, 2) - self.radius
+        squared_norm = pyo.quicksum(relative_position[i]**2 for i in range(3))
+
+        return 1/squared_norm
+        pass
+        # return -cp.log(cp.norm(relative_position, 2) - self.radius)
 
     def getURDF(self):
         """ For more details, see the docstring in Shape for this function. """

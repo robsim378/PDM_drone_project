@@ -10,15 +10,31 @@ class Shape(ABC):
 
         Parameters
         ----------
-        ndarray(3,) relative_pos :
+        pyomo.Expression[3] relative_pos :
             The position to check for a collision in, relative to the centre of the Shape.
         float inflationAmount :
             The amount to inflate the object by in all directions. Creates a safety buffer.
 
         Returns
         -------
-        list of cvxpy Constraints : 
+        list of pyomo.Expression : 
             The list of constraints defining collision with this shape.
+        """
+        pass
+
+    @abstractmethod
+    def getInverseDistance(self, relative_position):
+        """ Returns a cvxpy expression that evaluates to the inverse of the distance to the object. 
+
+        Parameters
+        ----------
+        pyomo.Expression[3] relative_position :
+            The position to compute the inverse distance to, relative to the centre of the Shape.
+
+        Returns
+        -------
+        pyomo.Expression :
+            The inverse of the distance from the surface of the object
         """
         pass
 
