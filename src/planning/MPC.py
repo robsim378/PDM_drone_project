@@ -66,6 +66,7 @@ class MPC():
             constraints += [self.x[2, k] <= 5] # Max z position
             constraints += [self.x[6, k] <= 100] # Max z velocity
 
+
             if k < self.horizon:
                 constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
 
@@ -75,13 +76,14 @@ class MPC():
                 constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
 
 
-            if k == 0:
-                collision_constraints = self.environment.getCollisionConstraints(self.x[:3, k], 0.0)
-                print(collision_constraints[0])
-                constraints += collision_constraints
+            # if k == 0:
+            #     collision_constraints = self.environment.getCollisionConstraints(self.x[:3, k], 0.0)
+            #     print(collision_constraints[0])
+            #     constraints += collision_constraints
+
             # constraints += [self.u[0, k] >= 0.01]    # Min thrust
             # constraints += [self.u[0, k] <= 1]    # Max thrust
-            #
+
             # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
             # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
                 
@@ -122,6 +124,11 @@ class MPC():
             cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
             cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
             # cost += cp.quad_form(self.u[:, k], self.weight_input)
+
+            # collision_costs = self.environment.getDistanceCosts(self.x[:3, k])
+            # print(collision_costs)
+            # cost += collision_costs
+            cost += 0.2 * -cp.log(self.x[0, k] + 0.5)
 
         return cost
 

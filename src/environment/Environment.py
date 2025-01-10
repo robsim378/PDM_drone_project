@@ -29,21 +29,10 @@ class Environment():
 
         self.env = env
         self.dt = 1 / env.CTRL_FREQ
+        self.time = 0
 
         self.drones = {}
-
-
-        # TODO: Figure out what's going on here
-
-        # if self.pyb_client_id == -1:
-        #     raise RuntimeError("Tried to initialize an Environment, but there was no running PyBullet instance.")
-
         self.obstacles = []
-        #Array of objects (obst + drone etc) in the environment represented by their pybullet id's
-        self.objects = []
-        # self.drone_id = -1
-        # self.env_id = p_id
-
         self.ghost_tail = []
         self.target_id = -1
 
@@ -61,6 +50,7 @@ class Environment():
         state = DroneState(pose, velocity, None)
         return state
 
+
     def addDrone(self, drone):
         """ Add a Drone to the list of drones in this environment. 
 
@@ -71,8 +61,10 @@ class Environment():
         """
         self.drones[drone.id] = drone
 
+
     def advanceSimulation(self):
-        """ Advance the simulation, executing the queued actions for all drones. """
+        """ Advance the simulation, executing the queued actions for all drones
+        and moving dynamic obstacles. """
 
         # Initialize empty actions for all drones
         actions = np.zeros((len(self.drones), 4))
@@ -82,11 +74,18 @@ class Environment():
             actions[id, :] = self.drones[id].action
             self.drones[id].action = None
 
+        # Step the simulation
         obs, reward, terminated, truncated, info = self.env.step(actions)
+
+        # Move dynamic obstacles
+        self.time += self.dt
+        for obstacle in self.obstacles:
+            p.resetBasePositionAndOrientation(obstacle.pyb_obj_id, obstacle.position + obstacle.trajectory(self.time), [1, 0, 0, 0], physicsClientId=self.pyb_client_id)
+
         return obs
 
 
-    def addSphere(self, position, radius=0.5):
+    def addSphere(self, position, radius=0.5, trajectory=None):
         """ Add a spherical obstacle to the environment.
 
         Parameters
@@ -95,20 +94,18 @@ class Environment():
             The radius of the sphere
         float[3] position :
             The x, y, z coordinates to place the obstacle
+        lambda trajectory :
+            The trajectory of the obstacle as a function of time. Must take time as its
+            only argument and return an np.array(3,) defining the offset from the base 
+            position at the given time.
         """
-        sphere_id = p.loadURDF("sphere2.urdf",
-                               position,
-                               p.getQuaternionFromEuler([0, 0, 0]),
-                               physicsClientId=self.pyb_client_id,
-                               globalScaling=radius/0.5,    # Default radius is 0.5
-                               )
 
-        # Add id to objects
-        self.objects += [sphere_id]
+        # Create the pybullet object
+        sphere = p.createCollisionShape(p.GEOM_SPHERE, radius = radius)
+        sphere_pyb_id = p.createMultiBody(0, sphere, basePosition=position, physicsClientId=self.pyb_client_id)
 
-        obstacle = Obstacle(position, sphere_id, shape=Sphere(radius))
-
-        # print(f"obstacle {obj_id} added at {position}")
+        # Create the Obstacle
+        obstacle = Obstacle(position, sphere_pyb_id, Sphere(radius), self, trajectory=trajectory)
         self.obstacles += [obstacle]
 
 
@@ -121,50 +118,25 @@ class Environment():
             The dimensions of the box
         float[3] position :
             The x, y, z coordinates to place the obstacle
+        lambda trajectory :
+            The trajectory of the obstacle as a function of time. Must take time as its
+            only argument and return an np.array(3,) defining the offset from the base 
+            position at the given time.
         """
 
         box = p.createCollisionShape(p.GEOM_BOX, halfExtents = [length/2, width/2, height/2])
-        p.createMultiBody(0, box, basePosition=position, physicsClientId=self.pyb_client_id)
+        box_pyb_id = p.createMultiBody(0, box, basePosition=position, physicsClientId=self.pyb_client_id)
 
-        obstacle = Obstacle(position, box, shape=RectangularPrism(length, width, height, position))
+        obstacle = Obstacle(position, box_pyb_id, RectangularPrism(length, width, height, position), self)
         self.obstacles += [obstacle]
 
-
-    # def addObstacle(self, type="sphere", position, rotation):
-    #     """ Add an obstacle to the environment.
-    #
-    #     Parameters
-    #     ----------
-    #     string urdf :
-    #         The filepath of the URDF file defining the obstacle
-    #     float[3] position :
-    #         The x, y, z coordinates to place the obstacle
-    #     float[3] rotation :
-    #         The euler angles defining the orientation of the obstacle
-    #     """
-    #     # NOTE: Maybe just take a Shape object and include the URDF file as part of that? Would probably be easier than determining shape from URDF
-    #
-    #     # TODO: Figure out if position and rotation have to be lists or if ndarrays are acceptable as well
-    #
-    #     #pybullet predetermined shapes
-    #     # obj_id = p.createCollisionShape(p.GEOM_SPHERE, physicsClientId=self.pyb_client_id)
-    #
-    #
-    #
-    #     # Add id to objects
-    #     self.objects += [obj_id]
-    #
-    #     #NOTE: this part doesnt seem to be doing anything, but it doesn't break anything either
-    #     # TODO: Add to the internal list of Obstacles
-    #     obstacle = Obstacle(position, obj_id, shape=Sphere(radius=0.5))
-    #     # print(f"obstacle {obj_id} added at {position}")
-    #     self.obstacles += [obstacle]
 
     def initializeWarehouse(self):
         """ Place obstacles to create a warehouse environment for the demo. """
 
-        # TODO: Once addObstacle is implemented, write this function to add all the necessary obstacles for the warehouse environment.
+        # TODO: Define the warehouse here
         pass
+
 
     def initMPCTail(self, tail_len):
         """ Initialize the ghost tail for MPC. 
@@ -180,8 +152,9 @@ class Environment():
             obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])
             self.ghost_tail.append(obj_id)
 
+
     def drawMPCTail(self, tail):
-        """ Render the MPC tail as a series of ghost objects. 
+        """ Render the MPC tail as a series of ghostly orbs. 
 
         Parameters
         ----------
@@ -214,25 +187,37 @@ class Environment():
                                         p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
 
 
-    def getCollisionConstraints(self, position, padding_amount):
-        """ Checks if the requested space is occupied.
+
+    def getCollisionConstraints(self, position, padding_amount, binary_vars, timestep_index):
+        """ Gets the collision constraints for the shape given some cvxpy expressions
 
         Parameters
         ----------
-        ndarray(3,) position :
-            The position to check for a collision
+        pyomo.Expression[3] position :
+            The cvxpy variable representing the position to check for a collision, relative to
+            the center of the obstacle.
         float padding_amount :
-            The amount to inflate the object by in all directions. Creates a safety buffer.
+            The amount to pad the object by in all directions. Creates a safety buffer.
 
         Returns
         -------
-        list of cvxpy constraints :
-            Inequality constraints for collisions with all obstacles.
+        list of pyomo.Expression : 
+            The list of constraints defining collision with this obstacle.
         """
 
-        # Loop through all obstacles and check if there is a collision with any of them.
-        # raise NotImplementedError("This hasn't been implemented yet.")
+        # Loop through all obstacles and get their collision constraints.
         constraints = []
-        for obstacle in self.obstacles:
-            constraints += obstacle.getCollisionConstraints(position, padding_amount)
+        for i, obstacle in enumerate(self.obstacles):
+            constraints.append(obstacle.getCollisionConstraints(position, padding_amount, binary_vars, timestep_index, i))
         return constraints
+
+    def getInverseDistances(self, position):
+        """ Gets pyomo expressions for the inverse of the distance to each obstacle. 
+
+        pyomo.Expression[3] position :
+            The position to check for a collision in, relative to the world origin.
+        """
+        costs = 0.
+        for obstacle in self.obstacles:
+            costs += obstacle.getDistanceCost(position)
+        return costs

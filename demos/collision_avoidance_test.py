@@ -24,7 +24,7 @@ from src.drone.DynamicalModel import DynamicalModel
 from src.drone.Mixer import Mixer
 from src.drone.Drone import Drone
 from src.environment.Environment import Environment
-from src.planning.MPC import MPC
+from src.planning.MPC2 import MPC
 from src.planning.CartesianGraph import CartesianGraph
 from src.planning.Node import Node, Connection
 
@@ -92,13 +92,6 @@ def run(
                     colab=colab
                     )
 
-    # Test adding obstacles
-    # sphere_id = p.loadURDF("sphere2.urdf",
-    #                [-1.0, 0, 0.5],
-    #                p.getQuaternionFromEuler([0, 0, 0]),
-    #                physicsClientId=PYB_CLIENT
-    #                )
-
     ##### Model Predictive Control setup ##########################
     # Initialize the simulation and do a single timestep to ensure everything is initialized properly
     START = time.time()
@@ -119,8 +112,10 @@ def run(
     # Initialize the environment
     environment = Environment(env)
 
-    environment.addSphere([-1.0, 0, 0.5], radius=0.5)
-    # environment.addBox([-1.0, 0, 0.5], 1, 1, 1)
+    # Add test obstacle
+    trajectory = lambda time: np.array([0, np.sin(time), 0])
+    environment.addSphere([-1.0, -0.5, 0.5], radius=0.5, trajectory=trajectory)
+    # environment.addBox([-1.0, 0, 0.5], 0.5, 1, 1)
 
     # Initialize the Drone 
     drone = Drone(mixer, environment)
@@ -150,7 +145,7 @@ def run(
             # Determine the trajectory. For now just hover up and down
             # target_z = 0.5 * np.sin(i/10) + 1
             target_z = 0.5
-            target_x = -2.0
+            target_x = -1.0
             target_y = 0
             target_yaw = 0
             target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
@@ -179,14 +174,6 @@ def run(
                 target_pos=target_pos,
                 target_rpy=target_rpy
             )[0]
-
-        # Logging
-        # print(f"Predicted next state: {next_state}")
-            # print(f"Calculated control input: {control_input}")
-
-            # Update the state in simulation. This also advances the simulation.
-            # drone.updateState(control_input)
-
 
         #### Printout ##############################################
         env.render()
