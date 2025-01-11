@@ -1,6 +1,2 @@
 numpy
-cvxpy
-ecos
-scs
 pyomo
-ipopt
