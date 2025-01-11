@@ -222,7 +222,7 @@ class Environment():
         return closest_obstacles
 
 
-    def getCollisionConstraints(self, position, padding_amount, binary_vars, timestep_index, num_obstacles):
+    def getCollisionConstraints(self, position, initial_position, padding_amount, binary_vars, timestep_index, num_obstacles):
         """ Gets the collision constraints for the shape given some cvxpy expressions
 
         Parameters
@@ -246,16 +246,15 @@ class Environment():
             The list of constraints defining collision with this obstacle.
         """
 
-        nearest_obstacles = self.getNearestObstacles(pyo.value(position)[:3], num_obstacles)
+        nearest_obstacles = self.getNearestObstacles(pyo.value(initial_position), num_obstacles)
 
         # Loop through all obstacles and get their collision constraints.
         constraints = []
-        # for i, obstacle in enumerate(self.obstacles):
         for i, obstacle in enumerate(nearest_obstacles):
             constraints.append(obstacle.getCollisionConstraints(position, padding_amount, binary_vars, timestep_index, i))
         return constraints
 
-    def getInverseDistances(self, position, timestep_index, num_obstacles):
+    def getInverseDistances(self, position, initial_position, timestep_index, num_obstacles):
         """ Gets pyomo expressions for the inverse of the distance to each obstacle. 
 
         Parameters
@@ -271,10 +270,9 @@ class Environment():
             The list of expressions defining proximity to obstacles in this environment
         """
 
-        nearest_obstacles = self.getNearestObstacles(pyo.value(position)[:3], num_obstacles)
+        nearest_obstacles = self.getNearestObstacles(pyo.value(initial_position), num_obstacles)
 
         inverse_distances = []
-        # for obstacle in self.obstacles:
         for obstacle in nearest_obstacles:
             inverse_distances.append(obstacle.getInverseDistance(position, timestep_index))
         return inverse_distances

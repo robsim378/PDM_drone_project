@@ -1,17 +1,17 @@
 import numpy as np
-import cvxpy as cp
+import pyomo.environ as pyo
 
 from src.drone.DynamicalModel import DynamicalModel
 
 class MPC():
     """ Class representing a Model Predictive Control controller used to control a Drone. """
 
-    def __init__(self, drone, model, environment, dt, horizon=10):
+    def __init__(self, drone, dynamical_model, environment, dt, horizon=10, num_obstacles=3):
         """ Initialize an MPC controller. 
 
         Parameters
         ----------
-        DynamicalModel model :
+        DynamicalModel dynamical_model :
             The state-space model to use for this controller.
         Environment environment :
             The environment to use for this controller.
@@ -19,21 +19,68 @@ class MPC():
             The timestep duration.
         int horizon :
             The number of timesteps into the future to predict.
+        int num_obstacles :
+            The maximum number of obstacles to consider for avoidance. Will take the nearest ones.
         """
         self.drone = drone
-        self.model = model
+        self.dynamical_model = dynamical_model
         self.environment = environment
         self.dt = dt
         self.horizon = horizon
+        self.num_obstacles = num_obstacles
 
-        # Initialize the x and u variables
-        self.x = cp.Variable((self.model.A.shape[1], self.horizon + 1)) # cp.Variable((dim_1, dim_2))
-        self.u = cp.Variable((self.model.B.shape[1], self.horizon))
+        # Initialize the optimization variables
+        self.model = pyo.ConcreteModel()
+
+        # Define dimensions
+        self.dim_x = self.dynamical_model.A.shape[1]  # State dimension
+        self.dim_u = self.dynamical_model.B.shape[1]  # Control input dimension
+
+        # Create variables in Pyomo
+        self.model.x = pyo.Var(range(self.dim_x), range(self.horizon + 1))  # (dim_x, horizon + 1)
+        self.model.u = pyo.Var(range(self.dim_u), range(self.horizon))     # (dim_u, horizon)
+        self.model.binary_vars = pyo.Var(range(3), (range(self.horizon + 1)), range(self.num_obstacles), domain=pyo.Binary)
+
+        # Initialize saved values used for warm-starting optimization variables
+        self.saved_values = None
+        self.initialize_saved_vars()
 
         # Weights for the input, position, and velocity.
-        # self.weight_input = 0.01 * np.eye(4) # Weight on the input
+        self.weight_input = 0.01 * np.eye(4) # Weight on the input
         self.weight_position = 1.0*np.eye(4) # Weight on the position
         self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
+        self.weight_obstacle_proximity =0.5
+        
+    def initialize_saved_vars(self):
+        """ Initialize values of optimization variables for warm-starting. """
+        self.saved_values = {}
+        
+        # Initialize for each variable (x, u, binary_vars)
+        for var_name in ['x', 'u', 'binary_vars']:
+            var = getattr(self.model, var_name)
+            
+            if isinstance(var, pyo.Var):
+                self.saved_values[var_name] = {}
+                for idx in var:
+                    self.saved_values[var_name][idx] = 0  # Initialize to zero
+    
+    def save_pyomo_vars(self):
+        """ Save current values of optimization variables for warm-starting. """
+        self.saved_values = {}
+        for var_name in ['x', 'u', 'binary_vars']:
+            var = getattr(self.model, var_name)
+            self.saved_values[var_name] = {
+                idx: pyo.value(var[idx]) for idx in var if var[idx].value is not None
+            }
+        return self.saved_values
+
+    def load_pyomo_vars(self):
+        """ Load previous values of optimization variables for warm-starting. """
+        for var_name, values in self.saved_values.items():
+            var = getattr(self.model, var_name)
+            for idx, value in values.items():
+                var[idx].value = value
+
 
 
     def getConstraints(self, initial_state):
@@ -50,61 +97,58 @@ class MPC():
             The constraints for the system.
         """
 
-        constraints = []
+        self.model.constraints = pyo.ConstraintList()
 
         # This should probably go in DynamicalModel
-        g_term = np.zeros(self.model.B.shape[0])
+        g_term = np.zeros(self.dynamical_model.B.shape[0])
         g_term[6] = -9.8 * self.dt
 
         # This is a placeholder value
         max_thrust_rate = 1
 
         for k in range(self.horizon):
-            constraints += [self.x[2, k] >= 0] # Min z position
-            constraints += [self.x[6, k] >= -100] # Min z velocity
 
-            constraints += [self.x[2, k] <= 5] # Max z position
-            constraints += [self.x[6, k] <= 100] # Max z velocity
-
+            # Min height
+            self.model.constraints.add(self.model.x[2, k] >= 0.2)
 
             if k < self.horizon:
-                constraints += [cp.abs(self.x[:3, k+1] - self.x[:3, k]) <= 0.3] # Max movement per timestep
+                for i in range(3):  # For each position coordinate (x, y, z)
+                    # Max movement per timestep
+                    self.model.constraints.add(self.model.x[i, k + 1] - self.model.x[i, k] <= 0.2)
+                    self.model.constraints.add(self.model.x[i, k + 1] - self.model.x[i, k] >= -0.2)
 
-                # TODO: make this next line actually correct (this is not a robust rotational error calculation)
-                constraints += [cp.abs(self.x[3, k+1] - self.x[3, k]) <= 0.1] # Max rotation per timestep
+                # Max rotation per timestep
+                self.model.constraints.add(self.model.x[3, k + 1] - self.model.x[3, k] <= 0.1)
+                self.model.constraints.add(self.model.x[3, k + 1] - self.model.x[3, k] >= -0.1)
+
+                # System dynamics (magical moving point mass)
+                for i in range(4):  # Assume the first 4 states are directly controlled
+                    self.model.constraints.add(self.model.x[i, k + 1] == self.model.u[i, k])
+
+
+            # Collision constraints. First timestep is ignored, since small amounts of noise when
+            # near an obstacle can push the drone within the safety bound and make the problem
+            # infeasible.
+            if (k > 0):
+                # collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], 0.1, self.model.binary_vars, k, self.num_obstacles)
+                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], initial_state[:3], 0.1, self.model.binary_vars, k, self.num_obstacles)
                 
-                constraints += [self.x[:4, k+1] == self.u[:, k]] # System "dynamics" (magical moving point mass)
+                for obstacle_constraints in collision_constraints:
+                    for constraint in obstacle_constraints:
+                        self.model.constraints.add(constraint)
 
 
-            # if k == 0:
-            #     collision_constraints = self.environment.getCollisionConstraints(self.x[:3, k], 0.0)
-            #     print(collision_constraints[0])
-            #     constraints += collision_constraints
-
-            # constraints += [self.u[0, k] >= 0.01]    # Min thrust
-            # constraints += [self.u[0, k] <= 1]    # Max thrust
-
-            # constraints += [self.u[1:4, k] >= np.array([-1] * 3)]  # Min torques
-            # constraints += [self.u[1:4, k] <= np.array([1] * 3)]   # Max torques
-                
-            # if k < self.horizon - 1:
-            #     constraints += [cp.abs(self.u[0, k+1] - self.u[0, k]) <= max_thrust_rate]
-
-            # dynamics
+            # dynamics (outdated)
             # constraints += [self.x[:, k+1] == (
-            #     self.model.A @ self.x[:, k] + 
-            #     self.model.B @ self.u[:, k] + 
+            #     self.dynamical_model.A @ self.x[:, k] + 
+            #     self.dynamical_model.B @ self.u[:, k] + 
             #     g_term
             # )] 
 
-
-        constraints += [self.x[:, 0] == initial_state]    # Initial position
-        
-
-        return constraints
+        self.model.initial_state = pyo.Constraint(range(self.dim_x), rule=lambda model, i: model.x[i, 0] == initial_state[i])       
 
 
-    def getCost(self, target_state):
+    def getCost(self, initial_state, target_state):
         """ Get the cost function for MPC given the target state.
 
         Parameters
@@ -118,19 +162,43 @@ class MPC():
             The cost function.
         """
 
-        cost = 0.
+        def objective_rule(model):
+            cost = 0
 
-        for k in range(self.horizon):
-            cost += cp.quad_form(self.x[0:4, k] - target_state[0:4], self.weight_position)
-            cost += cp.quad_form(self.x[4:8, k] - target_state[4:8], self.weight_velocity)
-            # cost += cp.quad_form(self.u[:, k], self.weight_input)
+            for k in range(self.horizon):
+                # Position cost
+                cost += sum(
+                    self.weight_position[i, j] *
+                    (model.x[i, k] - target_state[i]) *
+                    (model.x[j, k] - target_state[j])
+                    for i in range(4) for j in range(4)
+                )
 
-            # collision_costs = self.environment.getDistanceCosts(self.x[:3, k])
-            # print(collision_costs)
-            # cost += collision_costs
-            cost += 0.2 * -cp.log(self.x[0, k] + 0.5)
+                # Velocity cost
+                cost += sum(
+                    self.weight_velocity[i, j] *
+                    (model.x[i + 4, k] - target_state[i + 4]) *
+                    (model.x[j + 4, k] - target_state[j + 4])
+                    for i in range(4) for j in range(4)
+                )
 
-        return cost
+                # Uncomment below for input cost (if needed)
+                # cost += sum(
+                #     model.weight_input[i, j] *
+                #     model.u[i, k] *
+                #     model.u[j, k]
+                #     for i in range(dim_u) for j in range(dim_u)
+                # )
+
+                # Proximity to obstacles cost
+                inverse_distances = self.environment.getInverseDistances(self.model.x[:, k], initial_state[:3], k, self.num_obstacles)
+                cost += self.weight_obstacle_proximity * sum(inverse_distances)
+
+            return cost
+
+        # Add objective to model
+        self.model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
+
 
 
     def getOutput(self, initial_state, target_state):
@@ -154,24 +222,53 @@ class MPC():
             The MPC tail
         """
 
+        # Before reassigning 'constraints'
+        if hasattr(self.model, 'constraints'):
+            self.model.del_component(self.model.constraints)
+
+        # Before reassigning 'initial_state'
+        if hasattr(self.model, 'initial_state'):
+            self.model.del_component(self.model.initial_state)
+
+        # Before reassigning 'objective'
+        if hasattr(self.model, 'objective'):
+            self.model.del_component(self.model.objective)
+        
+        # Load warm-start values
+        self.load_pyomo_vars()
+    
         # Convert the DroneStates into numpy arrays
         x_init = np.hstack((initial_state.pose, initial_state.velocity))
         x_target = np.hstack((target_state.pose, target_state.velocity))
 
         # Initialize the cost and constraints
-        constraints = self.getConstraints(x_init)
-        cost = self.getCost(x_target)
+        self.getConstraints(x_init)
+        self.getCost(x_init, x_target)
 
         # Solve the optimization problem
-        problem = cp.Problem(cp.Minimize(cost), constraints)
-        # problem.solve(solver=cp.OSQP, verbose=False)
-        problem.solve(verbose=False)
+        solver = pyo.SolverFactory('ipopt')  # Use a suitable solver, e.g., IPOPT
+        # solver = pyo.SolverFactory('bonmin')
+        result = solver.solve(self.model, tee=False)  # Set tee=True for verbose output
 
-        # Logging
-        print(f"Position cost: {cp.quad_form(self.x[0:4, 1] - x_target[0:4], self.weight_position).value}")
-        print(f"Velocity cost: {cp.quad_form(self.x[4:8, 1] - x_target[4:8], self.weight_velocity).value}")
-        # print(f"Input cost: {cp.quad_form(self.u[:, 1], self.weight_input).value}")
+        # Check solver status
+        if result.solver.termination_condition == pyo.TerminationCondition.optimal:
+            print("Solver found an optimal solution.")
+        else:
+            print(f"Solver terminated with condition: {result.solver.termination_condition}")
+
+        # Save values for warm-starting
+        self.save_pyomo_vars()
 
         # Return the next input, predicted next state, and tail
-        return self.u[:, 0].value, self.x[:, 1].value, self.x.value
+        # Extract the control input at time step 0
+        u_0 = np.array([self.model.u[i, 0].value for i in range(self.dim_u)])
+
+        # Extract the state at time step 1
+        x_1 = np.array([self.model.x[i, 1].value for i in range(self.dim_x)])
+
+        # Extract the entire state trajectory
+        x_all = np.array([[self.model.x[i, k].value for k in range(self.horizon + 1)] for i in range(self.dim_x)])
+
+        # Return the extracted values
+        return u_0, x_1, x_all        
 

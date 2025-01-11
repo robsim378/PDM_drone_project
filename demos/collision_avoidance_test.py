@@ -24,9 +24,7 @@ from src.drone.DynamicalModel import DynamicalModel
 from src.drone.Mixer import Mixer
 from src.drone.Drone import Drone
 from src.environment.Environment import Environment
-from src.planning.MPC2 import MPC
-from src.planning.CartesianGraph import CartesianGraph
-from src.planning.Node import Node, Connection
+from src.planning.MPC import MPC
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
@@ -112,23 +110,30 @@ def run(
     # Initialize the environment
     environment = Environment(env)
 
-    # Add test obstacle
+    # Create trajectories for dynamic obstacles
     trajectory1 = lambda time: np.array([np.cos(time), np.sin(time), np.sin(time)])
     trajectory2= lambda time: np.array([np.cos(time), -np.sin(time), -np.sin(time)])
     trajectory3= lambda time: np.array([-np.cos(time), np.sin(time), np.sin(time)])
     trajectory4= lambda time: np.array([-np.cos(time), -np.sin(time), -np.sin(time)])
 
+    # Create dynamic obstacles
     environment.addSphere([-2.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
     environment.addSphere([-2.5, 0.5, 0.5], radius=0.3, trajectory=trajectory2)
     environment.addSphere([-3.0, 0, 0.5], radius=0.3, trajectory=trajectory3)
     environment.addSphere([-3.5, -0.5, 0.5], radius=0.3, trajectory=trajectory4)
     environment.addSphere([-4.0, 0.5, 0.5], radius=0.3, trajectory=trajectory1)
-
     environment.addSphere([-2.0, 0, 1.5], radius=0.3, trajectory=trajectory2)
     environment.addSphere([-2.5, -0.5, 1.5], radius=0.3, trajectory=trajectory3)
     environment.addSphere([-3.0, 0.5, 1.5], radius=0.3, trajectory=trajectory4)
     environment.addSphere([-3.5, -0.5, 1.5], radius=0.3, trajectory=trajectory1)
     environment.addSphere([-4.0, 0, 1.5], radius=0.3, trajectory=trajectory2)
+    
+    # Create static obstacles
+    for i in np.linspace(0, 3, num=5):
+        for j in np.linspace(-3, 3, num=5):
+            for k in np.linspace(-1.0, -4.0, num=3):
+                environment.addSphere([k, j+k/2, i], radius=0.5, trajectory=None)
+
     # environment.addBox([-1.0, 0, 0.5], 0.5, 1, 1)
 
     # Initialize the Drone 
@@ -137,7 +142,7 @@ def run(
 
     # Initialize the controller
     horizon = 10
-    num_obstacles = 5
+    num_obstacles = 7
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, horizon, num_obstacles)
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
@@ -167,6 +172,12 @@ def run(
 
             # Get the drone's current state
             current_state = drone.getState()
+
+            camera_distance = 0.5
+            camera_pitch = -30
+            camera_yaw = 90
+            p.resetDebugVisualizerCamera(
+                camera_distance, camera_yaw, camera_pitch, current_state.pose[:3])
 
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
             next_waypoint, next_state, tail = mpc_controller.getOutput(current_state, target_state)
