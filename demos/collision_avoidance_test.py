@@ -142,7 +142,7 @@ def run(
 
     # Initialize the controller
     horizon = 10
-    num_obstacles = 7
+    num_obstacles = 5
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, horizon, num_obstacles)
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
@@ -180,7 +180,7 @@ def run(
                 camera_distance, camera_yaw, camera_pitch, current_state.pose[:3])
 
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
-            next_waypoint, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+            next_state, tail = mpc_controller.getOutput(current_state, target_state)
 
             state_tail = []
             for state in tail.T:
@@ -189,9 +189,9 @@ def run(
             environment.drawMPCTail(state_tail)
 
             # Compute inputs to the PID controller based on the output from MPC
-            target_pos = next_waypoint[:3]
+            target_pos = next_state[:3]
             target_rpy = INIT_RPYS[j, :]
-            target_rpy[2] += next_waypoint[3]
+            target_rpy[2] += next_state[3]
 
             # Send the control inputs to MPC
             drone.action = pid_controller.computeControlFromState(

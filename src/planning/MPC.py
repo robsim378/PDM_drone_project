@@ -56,6 +56,7 @@ class MPC():
         self.saved_values = {}
         
         # Initialize for each variable (x, u, binary_vars)
+        # for var_name in ['x', 'binary_vars']:
         for var_name in ['x', 'u', 'binary_vars']:
             var = getattr(self.model, var_name)
             
@@ -67,6 +68,7 @@ class MPC():
     def save_pyomo_vars(self):
         """ Save current values of optimization variables for warm-starting. """
         self.saved_values = {}
+        # for var_name in ['x', 'binary_vars']:
         for var_name in ['x', 'u', 'binary_vars']:
             var = getattr(self.model, var_name)
             self.saved_values[var_name] = {
@@ -108,42 +110,53 @@ class MPC():
 
         for k in range(self.horizon):
 
+            # NOTE: Because we do not actually use the output this gives, but rather feed
+            # one of the first few states into a PID controller, we need to allow fairly high
+            # accelerations.
+            max_acceleration = 2000
+            max_velocity = 10
+
             # Min height
             self.model.constraints.add(self.model.x[2, k] >= 0.2)
 
+
+            for i in range(3):
+                # Max velocity
+                self.model.constraints.add(self.model.x[4 + i, k] <= max_velocity)
+                self.model.constraints.add(self.model.x[4 + i, k] >= -max_velocity)
+
             if k < self.horizon:
                 for i in range(3):  # For each position coordinate (x, y, z)
-                    # Max movement per timestep
-                    self.model.constraints.add(self.model.x[i, k + 1] - self.model.x[i, k] <= 0.2)
-                    self.model.constraints.add(self.model.x[i, k + 1] - self.model.x[i, k] >= -0.2)
-
-                # Max rotation per timestep
-                self.model.constraints.add(self.model.x[3, k + 1] - self.model.x[3, k] <= 0.1)
-                self.model.constraints.add(self.model.x[3, k + 1] - self.model.x[3, k] >= -0.1)
-
-                # System dynamics (magical moving point mass)
-                for i in range(4):  # Assume the first 4 states are directly controlled
-                    self.model.constraints.add(self.model.x[i, k + 1] == self.model.u[i, k])
-
+                    # Max acceleration
+                    self.model.constraints.add(self.model.u[i, k] <= max_acceleration)
+                    self.model.constraints.add(self.model.u[i, k] >= -max_acceleration)
 
             # Collision constraints. First timestep is ignored, since small amounts of noise when
             # near an obstacle can push the drone within the safety bound and make the problem
             # infeasible.
             if (k > 0):
-                # collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], 0.1, self.model.binary_vars, k, self.num_obstacles)
+                # Get collision constraints for all obstacles
                 collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], initial_state[:3], 0.1, self.model.binary_vars, k, self.num_obstacles)
                 
+                # Add collision constraints for each obstacle 
                 for obstacle_constraints in collision_constraints:
                     for constraint in obstacle_constraints:
                         self.model.constraints.add(constraint)
 
+            # Matrix multiplication in constraints is not supported by pyomo, so we must
+            # enforce the dynamics in this weird roundabout way
+            for i in range(self.dim_x):
+                self.model.constraints.add(
+                    self.model.x[i, k+1] == sum(
+                        self.dynamical_model.A[i, j] * self.model.x[j, k]
+                        for j in range(self.dim_x)
+                    ) + sum(
+                        self.dynamical_model.B[i, j] * self.model.u[j, k]
+                        for j in range(self.dim_u)
+                    ) + g_term[i]
+                )
 
-            # dynamics (outdated)
-            # constraints += [self.x[:, k+1] == (
-            #     self.dynamical_model.A @ self.x[:, k] + 
-            #     self.dynamical_model.B @ self.u[:, k] + 
-            #     g_term
-            # )] 
+
 
         self.model.initial_state = pyo.Constraint(range(self.dim_x), rule=lambda model, i: model.x[i, 0] == initial_state[i])       
 
@@ -184,10 +197,10 @@ class MPC():
 
                 # Uncomment below for input cost (if needed)
                 # cost += sum(
-                #     model.weight_input[i, j] *
+                #     self.weight_input[i, j] *
                 #     model.u[i, k] *
                 #     model.u[j, k]
-                #     for i in range(dim_u) for j in range(dim_u)
+                #     for i in range(self.dim_u) for j in range(self.dim_u)
                 # )
 
                 # Proximity to obstacles cost
@@ -261,14 +274,15 @@ class MPC():
 
         # Return the next input, predicted next state, and tail
         # Extract the control input at time step 0
-        u_0 = np.array([self.model.u[i, 0].value for i in range(self.dim_u)])
+        # u_0 = np.array([self.model.u[i, 0].value for i in range(self.dim_u)])
 
         # Extract the state at time step 1
         x_1 = np.array([self.model.x[i, 1].value for i in range(self.dim_x)])
+        x_2 = np.array([self.model.x[i, 2].value for i in range(self.dim_x)])
 
         # Extract the entire state trajectory
         x_all = np.array([[self.model.x[i, k].value for k in range(self.horizon + 1)] for i in range(self.dim_x)])
 
         # Return the extracted values
-        return u_0, x_1, x_all        
+        return x_2, x_all        
 
