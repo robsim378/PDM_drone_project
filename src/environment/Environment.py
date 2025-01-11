@@ -35,6 +35,7 @@ class Environment():
         self.obstacles = []
         self.ghost_tail = []
         self.target_id = -1
+        self.tracker_id = -1
 
     def getDroneState(self, drone_id):
         """ Get the current state of the drone from pybullet 
@@ -169,6 +170,23 @@ class Environment():
                 p.getQuaternionFromEuler(np.array([0, 0, state.pose[3]]))
             )
             
+    def initTracker(self):
+        visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.05, rgbaColor=[1, 0, 0, 0.5])
+        obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])
+        self.tracker_id = obj_id
+
+    def drawTracker(self, tracker_state):
+        """ Renders the tracker state in the simulation
+
+        Parameters
+        ----------
+        DroneState tracker_state:
+            The tracker state to be displayed
+        """
+        p.resetBasePositionAndOrientation(self.tracker_id, 
+                                        tracker_state.pose[:3], 
+                                        p.getQuaternionFromEuler(np.array([0,0,tracker_state.pose[3]])))
+
     def initTarget(self):
         visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.05, rgbaColor=[0, 1, 0, 0.5])
         obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])

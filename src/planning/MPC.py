@@ -114,7 +114,7 @@ class MPC():
             # NOTE: Because we do not actually use the output this gives, but rather feed
             # one of the first few states into a PID controller, we need to allow fairly high
             # accelerations.
-            max_acceleration = 2000
+            max_acceleration = 20
             max_velocity = 10
 
             # Min height
@@ -154,7 +154,8 @@ class MPC():
                     ) + sum(
                         self.dynamical_model.B[i, j] * self.model.u[j, k]
                         for j in range(self.dim_u)
-                    ) + g_term[i]
+                    )
+                    # ) + g_term[i]
                 )
 
 
@@ -275,7 +276,7 @@ class MPC():
 
         # Return the next input, predicted next state, and tail
         # Extract the control input at time step 0
-        # u_0 = np.array([self.model.u[i, 0].value for i in range(self.dim_u)])
+        u_0 = np.array([self.model.u[i, 0].value for i in range(self.dim_u)])
 
         # Extract the state at time step 1
         x_1 = np.array([self.model.x[i, 1].value for i in range(self.dim_x)])
@@ -284,5 +285,5 @@ class MPC():
         x_all = np.array([[self.model.x[i, k].value for k in range(self.horizon + 1)] for i in range(self.dim_x)])
 
         # Return the extracted values
-        return x_1, x_all        
+        return u_0, x_1, x_all        
 

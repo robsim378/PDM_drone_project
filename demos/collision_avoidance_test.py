@@ -109,16 +109,18 @@ def run(
 
     # Initialize the environment
     environment = Environment(env)
+    dt_factor = 3
+    environment.dt = environment.dt * dt_factor
 
     # Create trajectories for dynamic obstacles
     # trajectory1 = lambda time: np.array([0, np.sin(time), 0])
-    trajectory1= lambda time: np.array([np.cos(time), np.sin(time), -np.sin(time)])
-    trajectory2= lambda time: np.array([np.cos(time), -np.sin(time), -np.sin(time)])
-    trajectory3= lambda time: np.array([-np.cos(time), np.sin(time), np.sin(time)])
-    trajectory4= lambda time: np.array([-np.cos(time), -np.sin(time), -np.sin(time)])
+    trajectory1= lambda time: np.array([np.cos(time / dt_factor), np.sin(time / dt_factor), -np.sin(time / dt_factor)])
+    trajectory2= lambda time: np.array([np.cos(time / dt_factor), -np.sin(time / dt_factor), -np.sin(time / dt_factor)])
+    trajectory3= lambda time: np.array([-np.cos(time / dt_factor), np.sin(time / dt_factor), np.sin(time / dt_factor)])
+    trajectory4= lambda time: np.array([-np.cos(time / dt_factor), -np.sin(time / dt_factor), -np.sin(time / dt_factor)])
 
     # Create dynamic obstacles
-    # environment.addSphere([-1.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
+    # environment.addSphere([1.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
 
     environment.addSphere([-2.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
     environment.addSphere([-2.5, 0.5, 0.5], radius=0.3, trajectory=trajectory2)
@@ -146,10 +148,10 @@ def run(
     # Initialize the controller
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, 
                          horizon=10, 
-                         num_obstacles=7,
-                         obstacle_padding=0.2,
+                         num_obstacles=10,
+                         obstacle_padding=0.01,
                          weight_position=1.0,
-                         weight_obstacle_proximity=0.5,
+                         weight_obstacle_proximity=2,
                          )
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
@@ -160,43 +162,47 @@ def run(
     # Initialize the ghost tail for MPC
     environment.initMPCTail(mpc_controller.horizon+1)
     environment.initTarget()
+    environment.initTracker()
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
 
         # Loop for multiple drones. We don't have multiple drones, but removing this is a hassle with no real benefit.
         for j in range(num_drones):
-            # obs, reward, terminated, truncated, info = env.step(control_input)
+            # Advance the simulation
             obs = environment.advanceSimulation()
-
-
-            # Determine the trajectory. For now just hover up and down
-            # target_z = 0.5 * np.sin(i/10) + 1
-            target_z = 1.0
-            target_x = -5
-            target_y = 0.0
-            target_yaw = 0
-            target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
 
             # Get the drone's current state
             current_state = drone.getState()
 
+            # Move the camera to the drone's new position
             camera_distance = 0.5
             camera_pitch = -30
             camera_yaw = 90
             p.resetDebugVisualizerCamera(camera_distance, camera_yaw, camera_pitch, current_state.pose[:3])
 
+            # Determine the target position
+            target_z = 1.0
+            target_x = -5
+            target_y = 0.0
+            target_yaw = 0
+            target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
+            # Draw the target position as a green sphere
             environment.drawTarget(target_state)
 
-            # Get the output from MPC. In the current state of our system, this is just a position and yaw.
-            next_state, tail = mpc_controller.getOutput(current_state, target_state)
+            # Get the output from MPC. This is a series of states, one of which will be fed into the PID controller.
+            next_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
 
-            next_waypoint = tail.T[2]
+            # Create a position for the PID controller to track based on the acceleration direction
+            acceleration_gain = 0.01
+            next_waypoint = current_state.pose + acceleration_gain * next_input
+            # Draw the PID controller's target as a red sphere
+            environment.drawTracker(DroneState(next_waypoint[:4], np.array([0, 0, 0, 0]), None))
 
+            # Draw the tail as a series of blue spheres
             state_tail = []
             for state in tail.T:
                 state_tail.append(DroneState(state[:4], np.array([0, 0, 0, 0]), None))
-
             environment.drawMPCTail(state_tail)
 
             # Compute inputs to the PID controller based on the output from MPC
