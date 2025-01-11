@@ -6,7 +6,7 @@ from src.drone.DynamicalModel import DynamicalModel
 class MPC():
     """ Class representing a Model Predictive Control controller used to control a Drone. """
 
-    def __init__(self, drone, dynamical_model, environment, dt, horizon=10, num_obstacles=3):
+    def __init__(self, drone, dynamical_model, environment, dt, horizon=10, num_obstacles=3, obstacle_padding=0.1, weight_input=0.01, weight_position=1.0, weight_velocity=0.01, weight_obstacle_proximity=0.5):
         """ Initialize an MPC controller. 
 
         Parameters
@@ -28,6 +28,7 @@ class MPC():
         self.dt = dt
         self.horizon = horizon
         self.num_obstacles = num_obstacles
+        self.obstacle_padding = obstacle_padding
 
         # Initialize the optimization variables
         self.model = pyo.ConcreteModel()
@@ -46,10 +47,10 @@ class MPC():
         self.initialize_saved_vars()
 
         # Weights for the input, position, and velocity.
-        self.weight_input = 0.01 * np.eye(4) # Weight on the input
-        self.weight_position = 1.0*np.eye(4) # Weight on the position
-        self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
-        self.weight_obstacle_proximity =0.5
+        self.weight_input = weight_input * np.eye(4) # Weight on the input
+        self.weight_position = weight_position * np.eye(4) # Weight on the position
+        self.weight_velocity = weight_velocity * np.eye(4) # Weight on the velocity
+        self.weight_obstacle_proximity = weight_obstacle_proximity
         
     def initialize_saved_vars(self):
         """ Initialize values of optimization variables for warm-starting. """
@@ -136,7 +137,7 @@ class MPC():
             # infeasible.
             if (k > 0):
                 # Get collision constraints for all obstacles
-                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], initial_state[:3], 0.1, self.model.binary_vars, k, self.num_obstacles)
+                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], initial_state[:3], self.obstacle_padding, self.model.binary_vars, k, self.num_obstacles)
                 
                 # Add collision constraints for each obstacle 
                 for obstacle_constraints in collision_constraints:
@@ -278,11 +279,10 @@ class MPC():
 
         # Extract the state at time step 1
         x_1 = np.array([self.model.x[i, 1].value for i in range(self.dim_x)])
-        x_2 = np.array([self.model.x[i, 2].value for i in range(self.dim_x)])
 
         # Extract the entire state trajectory
         x_all = np.array([[self.model.x[i, k].value for k in range(self.horizon + 1)] for i in range(self.dim_x)])
 
         # Return the extracted values
-        return x_2, x_all        
+        return x_1, x_all        
 

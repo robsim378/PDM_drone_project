@@ -111,12 +111,15 @@ def run(
     environment = Environment(env)
 
     # Create trajectories for dynamic obstacles
-    trajectory1 = lambda time: np.array([np.cos(time), np.sin(time), np.sin(time)])
+    # trajectory1 = lambda time: np.array([0, np.sin(time), 0])
+    trajectory1= lambda time: np.array([np.cos(time), np.sin(time), -np.sin(time)])
     trajectory2= lambda time: np.array([np.cos(time), -np.sin(time), -np.sin(time)])
     trajectory3= lambda time: np.array([-np.cos(time), np.sin(time), np.sin(time)])
     trajectory4= lambda time: np.array([-np.cos(time), -np.sin(time), -np.sin(time)])
 
     # Create dynamic obstacles
+    # environment.addSphere([-1.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
+
     environment.addSphere([-2.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
     environment.addSphere([-2.5, 0.5, 0.5], radius=0.3, trajectory=trajectory2)
     environment.addSphere([-3.0, 0, 0.5], radius=0.3, trajectory=trajectory3)
@@ -141,9 +144,13 @@ def run(
     environment.addDrone(drone)
 
     # Initialize the controller
-    horizon = 10
-    num_obstacles = 5
-    mpc_controller = MPC(drone, drone.model, environment, environment.dt, horizon, num_obstacles)
+    mpc_controller = MPC(drone, drone.model, environment, environment.dt, 
+                         horizon=10, 
+                         num_obstacles=7,
+                         obstacle_padding=0.2,
+                         weight_position=1.0,
+                         weight_obstacle_proximity=0.5,
+                         )
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
 
@@ -151,7 +158,8 @@ def run(
     drone.action = control_input
 
     # Initialize the ghost tail for MPC
-    environment.initMPCTail(horizon+1)
+    environment.initMPCTail(mpc_controller.horizon+1)
+    environment.initTarget()
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
@@ -164,9 +172,9 @@ def run(
 
             # Determine the trajectory. For now just hover up and down
             # target_z = 0.5 * np.sin(i/10) + 1
-            target_z = 1
-            target_x = -5.0
-            target_y = 0
+            target_z = 1.0
+            target_x = -5
+            target_y = 0.0
             target_yaw = 0
             target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
 
@@ -176,11 +184,14 @@ def run(
             camera_distance = 0.5
             camera_pitch = -30
             camera_yaw = 90
-            p.resetDebugVisualizerCamera(
-                camera_distance, camera_yaw, camera_pitch, current_state.pose[:3])
+            p.resetDebugVisualizerCamera(camera_distance, camera_yaw, camera_pitch, current_state.pose[:3])
+
+            environment.drawTarget(target_state)
 
             # Get the output from MPC. In the current state of our system, this is just a position and yaw.
             next_state, tail = mpc_controller.getOutput(current_state, target_state)
+
+            next_waypoint = tail.T[2]
 
             state_tail = []
             for state in tail.T:
@@ -189,9 +200,9 @@ def run(
             environment.drawMPCTail(state_tail)
 
             # Compute inputs to the PID controller based on the output from MPC
-            target_pos = next_state[:3]
+            target_pos = next_waypoint[:3]
             target_rpy = INIT_RPYS[j, :]
-            target_rpy[2] += next_state[3]
+            target_rpy[2] += next_waypoint[3]
 
             # Send the control inputs to MPC
             drone.action = pid_controller.computeControlFromState(
