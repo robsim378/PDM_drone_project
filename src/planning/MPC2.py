@@ -41,10 +41,46 @@ class MPC():
         self.model.u = pyo.Var(range(self.dim_u), range(self.horizon))     # (dim_u, horizon)
         self.model.binary_vars = pyo.Var(range(3), (range(self.horizon + 1)), range(self.num_obstacles), domain=pyo.Binary)
 
+        # Initialize saved values used for warm-starting optimization variables
+        self.saved_values = None
+        self.initialize_saved_vars()
+
         # Weights for the input, position, and velocity.
         self.weight_input = 0.01 * np.eye(4) # Weight on the input
         self.weight_position = 1.0*np.eye(4) # Weight on the position
         self.weight_velocity = 0.01 * np.eye(4) # Weight on the velocity
+        self.weight_obstacle_proximity =0.5
+        
+    def initialize_saved_vars(self):
+        """ Initialize values of optimization variables for warm-starting. """
+        self.saved_values = {}
+        
+        # Initialize for each variable (x, u, binary_vars)
+        for var_name in ['x', 'u', 'binary_vars']:
+            var = getattr(self.model, var_name)
+            
+            if isinstance(var, pyo.Var):
+                self.saved_values[var_name] = {}
+                for idx in var:
+                    self.saved_values[var_name][idx] = 0  # Initialize to zero
+    
+    def save_pyomo_vars(self):
+        """ Save current values of optimization variables for warm-starting. """
+        self.saved_values = {}
+        for var_name in ['x', 'u', 'binary_vars']:
+            var = getattr(self.model, var_name)
+            self.saved_values[var_name] = {
+                idx: pyo.value(var[idx]) for idx in var if var[idx].value is not None
+            }
+        return self.saved_values
+
+    def load_pyomo_vars(self):
+        """ Load previous values of optimization variables for warm-starting. """
+        for var_name, values in self.saved_values.items():
+            var = getattr(self.model, var_name)
+            for idx, value in values.items():
+                var[idx].value = value
+
 
 
     def getConstraints(self, initial_state):
@@ -94,7 +130,7 @@ class MPC():
             # near an obstacle can push the drone within the safety bound and make the problem
             # infeasible.
             if (k > 0):
-                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], 0.4, self.model.binary_vars, k)
+                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], 0.1, self.model.binary_vars, k, self.num_obstacles)
                 for obstacle_constraints in collision_constraints:
                     for constraint in obstacle_constraints:
                         self.model.constraints.add(constraint)
@@ -152,6 +188,10 @@ class MPC():
                 #     for i in range(dim_u) for j in range(dim_u)
                 # )
 
+                # Proximity to obstacles cost
+                inverse_distances = self.environment.getInverseDistances(self.model.x[:, k], k, self.num_obstacles)
+                cost += self.weight_obstacle_proximity * sum(inverse_distances)
+
             return cost
 
         # Add objective to model
@@ -191,6 +231,9 @@ class MPC():
         # Before reassigning 'objective'
         if hasattr(self.model, 'objective'):
             self.model.del_component(self.model.objective)
+        
+        # Load warm-start values
+        self.load_pyomo_vars()
     
         # Convert the DroneStates into numpy arrays
         x_init = np.hstack((initial_state.pose, initial_state.velocity))
@@ -210,6 +253,9 @@ class MPC():
             print("Solver found an optimal solution.")
         else:
             print(f"Solver terminated with condition: {result.solver.termination_condition}")
+
+        # Save values for warm-starting
+        self.save_pyomo_vars()
 
         # Return the next input, predicted next state, and tail
         # Extract the control input at time step 0

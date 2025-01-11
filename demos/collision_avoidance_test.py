@@ -113,8 +113,22 @@ def run(
     environment = Environment(env)
 
     # Add test obstacle
-    trajectory = lambda time: np.array([0, np.sin(time), 0])
-    environment.addSphere([-1.0, -0.5, 0.5], radius=0.5, trajectory=trajectory)
+    trajectory1 = lambda time: np.array([np.cos(time), np.sin(time), np.sin(time)])
+    trajectory2= lambda time: np.array([np.cos(time), -np.sin(time), -np.sin(time)])
+    trajectory3= lambda time: np.array([-np.cos(time), np.sin(time), np.sin(time)])
+    trajectory4= lambda time: np.array([-np.cos(time), -np.sin(time), -np.sin(time)])
+
+    environment.addSphere([-2.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
+    environment.addSphere([-2.5, 0.5, 0.5], radius=0.3, trajectory=trajectory2)
+    environment.addSphere([-3.0, 0, 0.5], radius=0.3, trajectory=trajectory3)
+    environment.addSphere([-3.5, -0.5, 0.5], radius=0.3, trajectory=trajectory4)
+    environment.addSphere([-4.0, 0.5, 0.5], radius=0.3, trajectory=trajectory1)
+
+    environment.addSphere([-2.0, 0, 1.5], radius=0.3, trajectory=trajectory2)
+    environment.addSphere([-2.5, -0.5, 1.5], radius=0.3, trajectory=trajectory3)
+    environment.addSphere([-3.0, 0.5, 1.5], radius=0.3, trajectory=trajectory4)
+    environment.addSphere([-3.5, -0.5, 1.5], radius=0.3, trajectory=trajectory1)
+    environment.addSphere([-4.0, 0, 1.5], radius=0.3, trajectory=trajectory2)
     # environment.addBox([-1.0, 0, 0.5], 0.5, 1, 1)
 
     # Initialize the Drone 
@@ -123,7 +137,8 @@ def run(
 
     # Initialize the controller
     horizon = 10
-    mpc_controller = MPC(drone, drone.model, environment, environment.dt, horizon)
+    num_obstacles = 5
+    mpc_controller = MPC(drone, drone.model, environment, environment.dt, horizon, num_obstacles)
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
 
@@ -144,8 +159,8 @@ def run(
 
             # Determine the trajectory. For now just hover up and down
             # target_z = 0.5 * np.sin(i/10) + 1
-            target_z = 0.5
-            target_x = -1.0
+            target_z = 1
+            target_x = -5.0
             target_y = 0
             target_yaw = 0
             target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)

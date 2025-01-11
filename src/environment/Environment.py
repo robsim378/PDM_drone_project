@@ -1,5 +1,5 @@
 import numpy as np
-import cvxpy
+import pyomo.environ as pyo
 import pybullet as p
 
 from src.drone.DroneState import DroneState
@@ -186,18 +186,59 @@ class Environment():
                                         target_state.pose[:3], 
                                         p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
 
+    def getNearestObstacles(self, position, num_obstacles):
+        """ Gets the nearest obstacles to a given position.
+
+        Parameters
+        ----------
+        float[3] position :
+            The position to get the nearest obstacles to
+        int num_obstacles :
+            The number of obstacles to get
+
+        Returns 
+        -------
+        Obstacle[num_obstacles] : The num_obstacles nearest obstacles to position
+        """
+
+        # Calculate the current position of all obstacles
+        obstacle_positions = []
+        for obstacle in self.obstacles:
+            obstacle_positions.append(obstacle.position + obstacle.trajectory(self.time))
+        obstacle_positions = np.stack(obstacle_positions)
+
+        # Calculate the distance to all obstacles
+        position = np.array(position)
+        obstacle_distances = np.linalg.norm(obstacle_positions - position, axis=1)
+
+        # Use argsort to get the indices of the closest obstacles
+        closest_indices = np.argsort(obstacle_distances)[:num_obstacles]
+
+        # Extract the closest obstacles
+        closest_obstacles = []
+        for index in closest_indices:
+            closest_obstacles.append(self.obstacles[index])
+
+        return closest_obstacles
 
 
-    def getCollisionConstraints(self, position, padding_amount, binary_vars, timestep_index):
+    def getCollisionConstraints(self, position, padding_amount, binary_vars, timestep_index, num_obstacles):
         """ Gets the collision constraints for the shape given some cvxpy expressions
 
         Parameters
         ----------
         pyomo.Expression[3] position :
             The cvxpy variable representing the position to check for a collision, relative to
-            the center of the obstacle.
+            the world origin.
         float padding_amount :
             The amount to pad the object by in all directions. Creates a safety buffer.
+        pyomo.Var[] binary_vars :
+            Binary variables used for mixed-integer constraints where needed. Currently unused,
+            since mixed-integer nonconvex programming is incredibly slow, but left in place just in case.
+        int timestep_index :
+            How many timesteps into the future to consider the position of this object at.
+        int num_obstacles :
+            How many of the nearest obstacles to consider.
 
         Returns
         -------
@@ -205,19 +246,35 @@ class Environment():
             The list of constraints defining collision with this obstacle.
         """
 
+        nearest_obstacles = self.getNearestObstacles(pyo.value(position)[:3], num_obstacles)
+
         # Loop through all obstacles and get their collision constraints.
         constraints = []
-        for i, obstacle in enumerate(self.obstacles):
+        # for i, obstacle in enumerate(self.obstacles):
+        for i, obstacle in enumerate(nearest_obstacles):
             constraints.append(obstacle.getCollisionConstraints(position, padding_amount, binary_vars, timestep_index, i))
         return constraints
 
-    def getInverseDistances(self, position):
+    def getInverseDistances(self, position, timestep_index, num_obstacles):
         """ Gets pyomo expressions for the inverse of the distance to each obstacle. 
 
+        Parameters
+        ----------
         pyomo.Expression[3] position :
             The position to check for a collision in, relative to the world origin.
+        int timestep_index :
+            How many timesteps into the future to consider the position of this object at.
+
+        Returns
+        -------
+        list of pyomo.Expression :
+            The list of expressions defining proximity to obstacles in this environment
         """
-        costs = 0.
-        for obstacle in self.obstacles:
-            costs += obstacle.getInverseDistance(position)
-        return costs
+
+        nearest_obstacles = self.getNearestObstacles(pyo.value(position)[:3], num_obstacles)
+
+        inverse_distances = []
+        # for obstacle in self.obstacles:
+        for obstacle in nearest_obstacles:
+            inverse_distances.append(obstacle.getInverseDistance(position, timestep_index))
+        return inverse_distances

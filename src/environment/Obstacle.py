@@ -45,8 +45,9 @@ class Obstacle():
 
         Parameters
         ----------
-        ndarray(3,) drone_global_position :
-            The position to check for a collision in, relative to the environment
+        pyomo.Expression[3] position :
+            The cvxpy variable representing the position to check for a collision, relative to
+            the world origin.
         float padding_amount :
             The amount to inflate the object by in all directions. Creates a safety buffer.
         pyomo.Var[] binary_vars :
@@ -78,15 +79,15 @@ class Obstacle():
         constraints = self.shape.getCollisionConstraints(drone_relative_position, padding_amount, binary_vars_list) 
         return constraints
 
-    def getInverseDistance(self, drone_global_position, padding_amount, timestep_index):
+    def getInverseDistance(self, drone_global_position, timestep_index):
         """ Gets the inverse of the distance from a position as a cvxpy expression
 
         Parameters
         ----------
         cvxpy.Variable[3] drone_global_position :
             The position to check for a collision in, relative to the world origin.
-        float time :
-            The time to check for a collision at. For static obstacles, leave this unset.
+        int timestep_index :
+            How many timesteps into the future to consider the position of this object at.
 
         Returns
         -------
@@ -104,4 +105,4 @@ class Obstacle():
             if i >= 2:
                 break
 
-        return self.shape.getInverseDistance(drone_relative_position, padding_amount)
+        return self.shape.getInverseDistance(drone_relative_position)

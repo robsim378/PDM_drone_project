@@ -32,10 +32,10 @@ class Sphere(Shape):
         # return cp.square(cp.norm(relative_position, 2) - self.radius)
         # return cp.norm(relative_position, 2) - self.radius
         squared_norm = pyo.quicksum(relative_position[i]**2 for i in range(3))
+        min_squared_distance = (self.radius)**2
 
-        return 1/squared_norm
-        pass
-        # return -cp.log(cp.norm(relative_position, 2) - self.radius)
+        return 1/(squared_norm - min_squared_distance)
+
 
     def getURDF(self):
         """ For more details, see the docstring in Shape for this function. """
