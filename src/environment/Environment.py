@@ -34,6 +34,7 @@ class Environment():
 
         self.drones = {}
         self.obstacles = []
+        self.obstacle_distances = []
         self.ghost_tail = []
         self.target_id = -1
         self.tracker_id = -1
@@ -68,6 +69,8 @@ class Environment():
         """ Advance the simulation, executing the queued actions for all drones
         and moving dynamic obstacles. """
 
+        self.time += self.dt
+
         # Initialize empty actions for all drones
         actions = np.zeros((len(self.drones), 4))
 
@@ -80,9 +83,11 @@ class Environment():
         obs, reward, terminated, truncated, info = self.env.step(actions)
 
         # Move dynamic obstacles
-        self.time += self.dt
         for obstacle in self.obstacles:
             p.resetBasePositionAndOrientation(obstacle.pyb_obj_id, obstacle.position + obstacle.trajectory(self.time), [1, 0, 0, 0], physicsClientId=self.pyb_client_id)
+
+        # Re-sort list of obstacles by distance
+        self.sortObstacles(self.drones[0].getState().pose[:3])
 
         return obs
 
@@ -193,7 +198,7 @@ class Environment():
             np.random.seed(seed)
 
         # Determine where to place pillars, leaving a minimum space between them
-        positions = self.generate_points(num_obstacles, 0.6, bounds)
+        positions = self.generate_points(num_obstacles, 1, bounds)
 
         # Add the pillars to the environment
         for i in range(num_obstacles):
@@ -238,11 +243,6 @@ class Environment():
                         trajectories[elements[2]](time),
                     ])
                 )(trajectory_elements)
-            # trajectory = lambda time: np.array([
-            #     trajectories[trajectory_elements[0]](time),
-            #     trajectories[trajectory_elements[1]](time),
-            #     trajectories[trajectory_elements[2]](time),
-            # ])
             self.addSphere([positions[i, 0], positions[i, 1], positions[i, 2]], radius=0.2, trajectory=trajectory)
 
 
@@ -305,36 +305,47 @@ class Environment():
                                         tracker_state.pose[:3], 
                                         p.getQuaternionFromEuler(np.array([0,0,tracker_state.pose[3]])))
 
-    def initTarget(self):
+    def initGlobalTarget(self):
         visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.05, rgbaColor=[0, 1, 0, 0.5])
         obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])
-        self.target_id = obj_id
+        self.global_target_id = obj_id
 
-    def drawTarget(self, target_state):
-        """ Renders the target state in the simulation
+    def drawGlobalTarget(self, target_state):
+        """ Renders the global target state in the simulation
 
         Parameters
         ----------
         DroneState target:
             The target state to be displayed
         """
-        p.resetBasePositionAndOrientation(self.target_id, 
+        p.resetBasePositionAndOrientation(self.global_target_id, 
                                         target_state.pose[:3], 
                                         p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
 
-    def getNearestObstacles(self, position, num_obstacles):
-        """ Gets the nearest obstacles to a given position.
+    def initLocalTarget(self):
+        visual_shape_id = p.createVisualShape(shapeType=p.GEOM_SPHERE, radius=0.05, rgbaColor=[1, 1, 0, 0.5])
+        obj_id = p.createMultiBody(baseMass=0, baseVisualShapeIndex=visual_shape_id, basePosition=[0, 0, 0])
+        self.local_target_id = obj_id
+
+    def drawLocalTarget(self, target_state):
+        """ Renders the local state in the simulation
+
+        Parameters
+        ----------
+        DroneState target:
+            The target state to be displayed
+        """
+        p.resetBasePositionAndOrientation(self.local_target_id, 
+                                        target_state.pose[:3], 
+                                        p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
+
+    def sortObstacles(self, position):
+        """ Sort the internal list of obstacles by distance
 
         Parameters
         ----------
         float[3] position :
-            The position to get the nearest obstacles to
-        int num_obstacles :
-            The number of obstacles to get
-
-        Returns 
-        -------
-        Obstacle[num_obstacles] : The num_obstacles nearest obstacles to position
+            The position to base the sorting around
         """
 
         # Calculate the current position of all obstacles
@@ -351,15 +362,15 @@ class Environment():
         position = np.array(position)
         obstacle_distances = np.linalg.norm(obstacle_positions - position, axis=1)
 
-        # Use argsort to get the indices of the closest obstacles
-        closest_indices = np.argsort(obstacle_distances)[:num_obstacles]
+        # Use argsort to get the indices of the obstacles, in order of distance
+        sorted_indices = np.argsort(obstacle_distances)
 
-        # Extract the closest obstacles
-        closest_obstacles = []
-        for index in closest_indices:
-            closest_obstacles.append(self.obstacles[index])
+        # Replace the list of obstacles with a sorted version
+        sorted_obstacles = [self.obstacles[i] for i in sorted_indices]
+        self.obstacles = sorted_obstacles
 
-        return closest_obstacles
+        sorted_distances = [obstacle_distances[i] for i in sorted_indices]
+        self.obstacle_distances = sorted_distances
 
 
     def getCollisionConstraints(self, position, initial_position, padding_amount, binary_vars, timestep_index, num_obstacles):
@@ -386,13 +397,12 @@ class Environment():
             The list of constraints defining collision with this obstacle.
         """
 
-        nearest_obstacles = self.getNearestObstacles(pyo.value(initial_position), num_obstacles)
-
         # Loop through all obstacles and get their collision constraints.
         constraints = []
-        for i, obstacle in enumerate(nearest_obstacles):
+        for i, obstacle in enumerate(self.obstacles[:num_obstacles]):
             constraints.append(obstacle.getCollisionConstraints(position, padding_amount, binary_vars, timestep_index, i))
         return constraints
+
 
     def getInverseDistances(self, position, initial_position, timestep_index, num_obstacles):
         """ Gets pyomo expressions for the inverse of the distance to each obstacle. 
@@ -410,9 +420,8 @@ class Environment():
             The list of expressions defining proximity to obstacles in this environment
         """
 
-        nearest_obstacles = self.getNearestObstacles(pyo.value(initial_position), num_obstacles)
 
         inverse_distances = []
-        for obstacle in nearest_obstacles:
+        for obstacle in self.obstacles[:num_obstacles]:
             inverse_distances.append(obstacle.getInverseDistance(position, timestep_index))
         return inverse_distances

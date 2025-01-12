@@ -284,6 +284,8 @@ class MPC():
         # Extract the entire state trajectory
         x_all = np.array([[self.model.x[i, k].value for k in range(self.horizon + 1)] for i in range(self.dim_x)])
 
+        cost = self.model.objective()
+
         # Return the extracted values
-        return u_0, x_1, x_all        
+        return u_0, x_1, x_all, cost  
 

@@ -118,7 +118,7 @@ def run(
         [-4, -1],
         [-3, 3]
     ])
-    environment.addStaticObstacles(20, pillar_bounds)
+    environment.addStaticObstacles(15, pillar_bounds, seed=69)
 
     # Create dynamic obstacles
     sphere_bounds = np.array([
@@ -126,7 +126,9 @@ def run(
         [-3, 3],
         [0, 4]
     ])
-    environment.addDynamicObstacles(40, sphere_bounds, dt_factor)
+    environment.addDynamicObstacles(40, sphere_bounds, dt_factor, seed=69)
+
+    # environment.addSphere([1, 1, 1], 0.5, None)
 
     # Create box obstacle (NOT WORKING)
     # environment.addBox([-1.0, 0, 0.5], 0.5, 1, 1)
@@ -139,22 +141,34 @@ def run(
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, 
                          horizon=10, 
                          num_obstacles=10,
-                         obstacle_padding=0.04,
-                         weight_position=2.0,
-                         weight_obstacle_proximity=0.5,
+                         obstacle_padding=0.035,
+                         weight_position=5.0,
+                         weight_obstacle_proximity=1,
                          )
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
 
     acceleration_gain = 0.013
+    global_planner_distance = 2
 
     control_input = np.zeros((1, 4))
     drone.action = control_input
 
+    global_target_z = 1.0
+    global_target_x = -6
+    global_target_y = 0.0
+    global_target_yaw = 0
+    global_target_state = DroneState(np.array([global_target_x, global_target_y, global_target_z, global_target_yaw]), np.array([0, 0, 0, 0]), None)
+
     # Initialize the ghost tail for MPC
     environment.initMPCTail(mpc_controller.horizon+1)
-    environment.initTarget()
+    environment.initLocalTarget()
+    environment.initGlobalTarget()
     environment.initTracker()
+
+    progress = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
+    nearest_obstacle_distance = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
+    cost = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
@@ -167,26 +181,36 @@ def run(
             # Get the drone's current state
             current_state = drone.getState()
 
+            # Get a point in the direction of the target that isn't too far away (global planner)
+            positional_error = global_target_state.pose - current_state.pose
+            positional_error_scalar = np.linalg.norm(positional_error)
+            corrected_magnitude = min(positional_error_scalar, global_planner_distance)
+            local_target = current_state.pose + positional_error/positional_error_scalar * corrected_magnitude
+            local_target_state = DroneState(local_target, np.array([0, 0, 0, 0]), None)
+
+
             # Move the camera to the drone's new position
             camera_distance = 0.5
             camera_pitch = -30
             camera_yaw = 90
             p.resetDebugVisualizerCamera(camera_distance, camera_yaw, camera_pitch, current_state.pose[:3])
 
-            # Determine the target position
-            target_z = 1.0
-            target_x = -5
-            target_y = 0.0
-            target_yaw = 0
-            target_state = DroneState(np.array([target_x, target_y, target_z, target_yaw]), np.array([0, 0, 0, 0]), None)
             # Draw the target position as a green sphere
-            environment.drawTarget(target_state)
+            environment.drawLocalTarget(local_target_state)
+            environment.drawGlobalTarget(global_target_state)
 
-            # Get the output from MPC. This is a series of states, one of which will be fed into the PID controller.
-            next_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
+
+            # Gather metrics
+            progress[i] = np.linalg.norm(current_state.pose[:3] - global_target_state.pose[:3])
+            nearest_obstacle_distance[i] = environment.obstacle_distances[0]
+            # nearest_obstacle_distance[i] = np.linalg.norm(current_state.pose[:3] - environment.obstacles[0].position - environment.obstacles[0].trajectory(i * environment.dt))
+
+            # Get the output from MPC
+            next_input, next_state, tail, cost[i] = mpc_controller.getOutput(current_state, local_target_state)
 
             # Create a position for the PID controller to track based on the acceleration direction
             next_waypoint = current_state.pose + acceleration_gain * next_input
+
             # Draw the PID controller's target as a red sphere
             environment.drawTracker(DroneState(next_waypoint[:4], np.array([0, 0, 0, 0]), None))
 
@@ -224,6 +248,22 @@ def run(
     # logger.save_as_csv("pid") # Optional CSV save
 
     #### Plot the simulation results ###########################
+    times = np.arange(len(progress)) * environment.dt
+
+    # Plot the line graph
+    plt.plot(times, progress, marker='o', label="Distance to target")
+    plt.plot(times, nearest_obstacle_distance, marker='o', label="Distance to nearest obstacle")
+
+    # Add labels, title, and legend
+    plt.xlabel('Time (s)')
+    plt.ylabel('Distance (m)')
+    plt.title('Metrics')
+    plt.legend()
+
+    # Show the graph
+    plt.grid()
+    plt.show()
+    
     if plot:
         logger.plot()
 
