@@ -1,7 +1,8 @@
 # RO47005: Planning and Decision Making - Project
 This repository contains our group's implementation of the Planning and Decision Making final project. The goal of this project is to implement motion planning for a quadrotor robot in 3D space. Our implementation focuses on local planning with model predictive control (MPC), and does not have any real global path planning. The drone tries to fly in the direction of the target position and uses MPC to avoid local obstacles.
 
-https://github.com/user-attachments/assets/f85d3ec8-3b07-4c4a-82d5-eff3bbd726f5
+https://github.com/user-attachments/assets/fbce4873-241b-409f-9f76-03059511abd8
+
 
 
 ## Setup instructions
