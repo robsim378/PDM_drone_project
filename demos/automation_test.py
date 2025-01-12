@@ -3,7 +3,7 @@ from demos.collision_avoidance_test import run, parse_arguments
 import sys
 import numpy as np
 
-runs = 50
+runs = 20
 
 target_reached_list = []
 solver_failed_list = []
