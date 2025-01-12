@@ -141,6 +141,7 @@ def run(
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, 
                          horizon=10, 
                          num_obstacles=10,
+                         obstacle_threshold=1.5,
                          obstacle_padding=0.035,
                          weight_position=5.0,
                          weight_obstacle_proximity=1,
@@ -167,7 +168,8 @@ def run(
     environment.initTracker()
 
     progress = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
-    nearest_obstacle_distance = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
+    if len(environment.obstacles) > 0:
+        nearest_obstacle_distance = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
     cost = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
 
     #### Run the simulation ####################################
@@ -202,7 +204,8 @@ def run(
 
             # Gather metrics
             progress[i] = np.linalg.norm(current_state.pose[:3] - global_target_state.pose[:3])
-            nearest_obstacle_distance[i] = environment.obstacle_distances[0]
+            if len(environment.obstacles) > 0:
+                nearest_obstacle_distance[i] = environment.obstacle_distances[0]
             # nearest_obstacle_distance[i] = np.linalg.norm(current_state.pose[:3] - environment.obstacles[0].position - environment.obstacles[0].trajectory(i * environment.dt))
 
             # Get the output from MPC
@@ -252,7 +255,8 @@ def run(
 
     # Plot the line graph
     plt.plot(times, progress, marker='o', label="Distance to target")
-    plt.plot(times, nearest_obstacle_distance, marker='o', label="Distance to nearest obstacle")
+    if len(environment.obstacles) > 0:
+        plt.plot(times, nearest_obstacle_distance, marker='o', label="Distance to nearest obstacle")
 
     # Add labels, title, and legend
     plt.xlabel('Time (s)')

@@ -6,7 +6,7 @@ from src.drone.DynamicalModel import DynamicalModel
 class MPC():
     """ Class representing a Model Predictive Control controller used to control a Drone. """
 
-    def __init__(self, drone, dynamical_model, environment, dt, horizon=10, num_obstacles=3, obstacle_padding=0.1, weight_input=0.01, weight_position=1.0, weight_velocity=0.01, weight_obstacle_proximity=0.5):
+    def __init__(self, drone, dynamical_model, environment, dt, horizon=10, num_obstacles=10, obstacle_threshold=2.0, obstacle_padding=0.1, weight_input=0.01, weight_position=1.0, weight_velocity=0.01, weight_obstacle_proximity=0.5):
         """ Initialize an MPC controller. 
 
         Parameters
@@ -28,6 +28,7 @@ class MPC():
         self.dt = dt
         self.horizon = horizon
         self.num_obstacles = num_obstacles
+        self.obstacle_threshold = obstacle_threshold
         self.obstacle_padding = obstacle_padding
 
         # Initialize the optimization variables
@@ -137,7 +138,7 @@ class MPC():
             # infeasible.
             if (k > 0):
                 # Get collision constraints for all obstacles
-                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], initial_state[:3], self.obstacle_padding, self.model.binary_vars, k, self.num_obstacles)
+                collision_constraints = self.environment.getCollisionConstraints(self.model.x[:, k], initial_state[:3], self.obstacle_padding, self.model.binary_vars, k, self.obstacle_threshold, self.num_obstacles)
                 
                 # Add collision constraints for each obstacle 
                 for obstacle_constraints in collision_constraints:
@@ -206,7 +207,8 @@ class MPC():
                 # )
 
                 # Proximity to obstacles cost
-                inverse_distances = self.environment.getInverseDistances(self.model.x[:, k], initial_state[:3], k, self.num_obstacles)
+                # inverse_distances = self.environment.getInverseDistances(self.model.x[:, k], initial_state[:3], k, self.num_obstacles)
+                inverse_distances = self.environment.getInverseDistances(self.model.x[:, k], initial_state[:3], k, self.obstacle_threshold, self.num_obstacles)
                 cost += self.weight_obstacle_proximity * sum(inverse_distances)
 
             return cost

@@ -339,6 +339,28 @@ class Environment():
                                         target_state.pose[:3], 
                                         p.getQuaternionFromEuler(np.array([0,0,target_state.pose[3]])))
 
+    def getNearbyObstacles(self, position, threshold, max_obstacles):
+        """ Gets all obsacles within a certain distance of a target position. 
+        
+        Parameters
+        ----------
+        np.array(3) position :
+            The position to check
+        float threshold :
+            The maximum distance to consider obstacles in.
+
+        Returns
+        -------
+        Obstacle[] :
+            All obstacles within the threshold distance
+        """
+        indices = np.where(self.obstacle_distances < threshold)[0]
+        if len(indices) > max_obstacles:
+            indices = indices[:max_obstacles]
+        result = [self.obstacles[i] for i in indices]
+        return result
+
+
     def sortObstacles(self, position):
         """ Sort the internal list of obstacles by distance
 
@@ -347,6 +369,9 @@ class Environment():
         float[3] position :
             The position to base the sorting around
         """
+
+        if len(self.obstacles) == 0:
+            return
 
         # Calculate the current position of all obstacles
         obstacle_positions = []
@@ -369,11 +394,11 @@ class Environment():
         sorted_obstacles = [self.obstacles[i] for i in sorted_indices]
         self.obstacles = sorted_obstacles
 
-        sorted_distances = [obstacle_distances[i] for i in sorted_indices]
+        sorted_distances = np.array([obstacle_distances[i] for i in sorted_indices])
         self.obstacle_distances = sorted_distances
 
 
-    def getCollisionConstraints(self, position, initial_position, padding_amount, binary_vars, timestep_index, num_obstacles):
+    def getCollisionConstraints(self, position, initial_position, padding_amount, binary_vars, timestep_index, threshold, num_obstacles):
         """ Gets the collision constraints for the shape given some cvxpy expressions
 
         Parameters
@@ -399,12 +424,13 @@ class Environment():
 
         # Loop through all obstacles and get their collision constraints.
         constraints = []
-        for i, obstacle in enumerate(self.obstacles[:num_obstacles]):
+        # for i, obstacle in enumerate(self.obstacles[:num_obstacles]):
+        for i, obstacle in enumerate(self.getNearbyObstacles(initial_position, threshold, num_obstacles)):
             constraints.append(obstacle.getCollisionConstraints(position, padding_amount, binary_vars, timestep_index, i))
         return constraints
 
 
-    def getInverseDistances(self, position, initial_position, timestep_index, num_obstacles):
+    def getInverseDistances(self, position, initial_position, timestep_index, threshold, num_obstacles):
         """ Gets pyomo expressions for the inverse of the distance to each obstacle. 
 
         Parameters
@@ -422,6 +448,6 @@ class Environment():
 
 
         inverse_distances = []
-        for obstacle in self.obstacles[:num_obstacles]:
+        for obstacle in self.getNearbyObstacles(initial_position, threshold, num_obstacles):
             inverse_distances.append(obstacle.getInverseDistance(position, timestep_index))
         return inverse_distances
