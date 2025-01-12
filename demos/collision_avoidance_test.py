@@ -112,33 +112,23 @@ def run(
     dt_factor = 3
     environment.dt = environment.dt * dt_factor
 
-    # Create trajectories for dynamic obstacles
-    # trajectory1 = lambda time: np.array([0, np.sin(time), 0])
-    trajectory1= lambda time: np.array([np.cos(time / dt_factor), np.sin(time / dt_factor), -np.sin(time / dt_factor)])
-    trajectory2= lambda time: np.array([np.cos(time / dt_factor), -np.sin(time / dt_factor), -np.sin(time / dt_factor)])
-    trajectory3= lambda time: np.array([-np.cos(time / dt_factor), np.sin(time / dt_factor), np.sin(time / dt_factor)])
-    trajectory4= lambda time: np.array([-np.cos(time / dt_factor), -np.sin(time / dt_factor), -np.sin(time / dt_factor)])
-
-    # Create dynamic obstacles
-    # environment.addSphere([1.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
-
-    environment.addSphere([-2.0, -0.5, 0.5], radius=0.3, trajectory=trajectory1)
-    environment.addSphere([-2.5, 0.5, 0.5], radius=0.3, trajectory=trajectory2)
-    environment.addSphere([-3.0, 0, 0.5], radius=0.3, trajectory=trajectory3)
-    environment.addSphere([-3.5, -0.5, 0.5], radius=0.3, trajectory=trajectory4)
-    environment.addSphere([-4.0, 0.5, 0.5], radius=0.3, trajectory=trajectory1)
-    environment.addSphere([-2.0, 0, 1.5], radius=0.3, trajectory=trajectory2)
-    environment.addSphere([-2.5, -0.5, 1.5], radius=0.3, trajectory=trajectory3)
-    environment.addSphere([-3.0, 0.5, 1.5], radius=0.3, trajectory=trajectory4)
-    environment.addSphere([-3.5, -0.5, 1.5], radius=0.3, trajectory=trajectory1)
-    environment.addSphere([-4.0, 0, 1.5], radius=0.3, trajectory=trajectory2)
     
     # Create static obstacles
-    for i in np.linspace(0, 3, num=5):
-        for j in np.linspace(-3, 3, num=5):
-            for k in np.linspace(-1.0, -4.0, num=3):
-                environment.addSphere([k, j+k/2, i], radius=0.5, trajectory=None)
+    pillar_bounds = np.array([
+        [-4, -1],
+        [-3, 3]
+    ])
+    environment.addStaticObstacles(20, pillar_bounds)
 
+    # Create dynamic obstacles
+    sphere_bounds = np.array([
+        [-4, -1],
+        [-3, 3],
+        [0, 4]
+    ])
+    environment.addDynamicObstacles(40, sphere_bounds, dt_factor)
+
+    # Create box obstacle (NOT WORKING)
     # environment.addBox([-1.0, 0, 0.5], 0.5, 1, 1)
 
     # Initialize the Drone 
@@ -149,12 +139,14 @@ def run(
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, 
                          horizon=10, 
                          num_obstacles=10,
-                         obstacle_padding=0.01,
-                         weight_position=1.0,
-                         weight_obstacle_proximity=2,
+                         obstacle_padding=0.04,
+                         weight_position=2.0,
+                         weight_obstacle_proximity=0.5,
                          )
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
+
+    acceleration_gain = 0.013
 
     control_input = np.zeros((1, 4))
     drone.action = control_input
@@ -194,7 +186,6 @@ def run(
             next_input, next_state, tail = mpc_controller.getOutput(current_state, target_state)
 
             # Create a position for the PID controller to track based on the acceleration direction
-            acceleration_gain = 0.01
             next_waypoint = current_state.pose + acceleration_gain * next_input
             # Draw the PID controller's target as a red sphere
             environment.drawTracker(DroneState(next_waypoint[:4], np.array([0, 0, 0, 0]), None))

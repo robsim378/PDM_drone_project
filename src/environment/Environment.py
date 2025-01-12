@@ -6,6 +6,7 @@ from src.drone.DroneState import DroneState
 from src.environment.RectangularPrism import RectangularPrism
 from src.environment.Obstacle import Obstacle
 from src.environment.Sphere import Sphere
+from src.environment.Cylinder import Cylinder
 
 class Environment():
     """ Class representing the environment a drone operates in. """
@@ -86,6 +87,30 @@ class Environment():
         return obs
 
 
+    def addCylinder(self, position, radius=0.5, trajectory=None):
+        """ Add a cylindrical obstacle to the environment with infinite height.
+
+        Parameters
+        ----------
+        float radius :
+            The radius of the cylinder
+        float[3] position :
+            The x, y, z coordinates to place the obstacle
+        lambda trajectory :
+            The trajectory of the obstacle as a function of time. Must take time as its
+            only argument and return an np.array(3,) defining the offset from the base 
+            position at the given time.
+        """
+
+        # Create the pybullet object
+        cylinder = p.createCollisionShape(p.GEOM_CYLINDER, radius = radius, height = 5)
+        cylinder_pyb_id = p.createMultiBody(0, cylinder, basePosition=position, physicsClientId=self.pyb_client_id)
+
+        # Create the Obstacle
+        obstacle = Obstacle(position, cylinder_pyb_id, Cylinder(radius), self, trajectory=trajectory)
+        self.obstacles += [obstacle]
+
+
     def addSphere(self, position, radius=0.5, trajectory=None):
         """ Add a spherical obstacle to the environment.
 
@@ -132,10 +157,103 @@ class Environment():
         self.obstacles += [obstacle]
 
 
-    def initializeWarehouse(self):
-        """ Place obstacles to create a warehouse environment for the demo. """
+    def generate_points(self, num_points, min_distance, bounds):
+        points = []
+        attempts = 0
+        max_attempts = 10000  # Prevent infinite loops
+        
+        while len(points) < num_points and attempts < max_attempts:
+            attempts += 1
+            # Generate a random point within the bounds
+            point = np.random.uniform(bounds[:, 0], bounds[:, 1])
+            
+            # Check the distance from all existing points
+            if all(np.linalg.norm(point - np.array(p)) >= min_distance for p in points):
+                points.append(point)
+        
+        if len(points) < num_points:
+            raise ValueError("Could not generate the required number of points within the maximum attempts.")
+    
+        return np.array(points)
 
-        # TODO: Define the warehouse here
+    def addStaticObstacles(self, num_obstacles, bounds, seed=None):
+        """ Add a randomized set of static pillar obstacles to the environment. 
+    
+        Parameters
+        ----------
+        int num_obstacles :
+            The number of obstacles to add
+        np.array(2, 2) bounds :
+            Two points defining the corners of the rectangle in which to place pillars
+        int seed :
+            The seed used to generate the positions of the pillars
+        """
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Determine where to place pillars, leaving a minimum space between them
+        positions = self.generate_points(num_obstacles, 0.6, bounds)
+
+        # Add the pillars to the environment
+        for i in range(num_obstacles):
+            self.addCylinder([positions[i, 0], positions[i, 1], 2.5], radius=0.3, trajectory=None)
+
+
+    def addDynamicObstacles(self, num_obstacles, bounds, speed_factor, seed=None):
+        """ Add a randomized set of moving spherical obstacles to the environment. 
+    
+        Parameters
+        ----------
+        int num_obstacles :
+            The number of obstacles to add
+        np.array(2, 3) bounds :
+            Two points defining the corners of the rectangle in which to place pillars
+        float speed_factor :
+            A multiplier for the obstacle's speed. Doesn't correspond to any real-world value.
+        int seed :
+            The seed used to generate the positions and trajectories of the obstacles.
+        """
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        trajectories = [
+            lambda time: np.sin(time / speed_factor),
+            lambda time: -np.sin(time / speed_factor),
+            lambda time: np.cos(time / speed_factor),
+            lambda time: -np.cos(time / speed_factor)
+        ]
+
+        # Determine where to place pillars, leaving a minimum space between them
+        positions = self.generate_points(num_obstacles, 1, bounds)
+
+        # Add the pillars to the environment
+        for i in range(num_obstacles):
+            trajectory_elements = np.random.randint(3, size=3)
+            trajectory = (lambda elements: 
+                    lambda time: np.array([
+                        trajectories[elements[0]](time),
+                        trajectories[elements[1]](time),
+                        trajectories[elements[2]](time),
+                    ])
+                )(trajectory_elements)
+            # trajectory = lambda time: np.array([
+            #     trajectories[trajectory_elements[0]](time),
+            #     trajectories[trajectory_elements[1]](time),
+            #     trajectories[trajectory_elements[2]](time),
+            # ])
+            self.addSphere([positions[i, 0], positions[i, 1], positions[i, 2]], radius=0.2, trajectory=trajectory)
+
+
+    def wind(self, wind_vector):
+        """ Apply a force in the specified direction to simulate wind. 
+
+        Parameters
+        ----------
+        np.array(3,) wind_vector :
+            The vector defining the direction and magnitude of the wind force.
+        """
         pass
 
 
@@ -223,6 +341,10 @@ class Environment():
         obstacle_positions = []
         for obstacle in self.obstacles:
             obstacle_positions.append(obstacle.position + obstacle.trajectory(self.time))
+
+            # Our cylinders are infinite, and therefore have no height
+            if isinstance(obstacle.shape, Cylinder):
+                obstacle_positions[-1][2] = 0
         obstacle_positions = np.stack(obstacle_positions)
 
         # Calculate the distance to all obstacles
