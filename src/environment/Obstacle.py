@@ -3,6 +3,7 @@ import pyomo as pyo
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
 
 from src.environment.Shape import Shape
+from src.environment.Cylinder import Cylinder
 
 class Obstacle():
     """ Class defining an obstacle in an environment. """
@@ -72,6 +73,9 @@ class Obstacle():
             if i >= 2:
                 break
 
+        if isinstance(self.shape, Cylinder):
+            drone_relative_position[-1] = 0
+
         binary_vars_list = []
         for binary_var in binary_vars[:, timestep_index, obstacle_index]:
             binary_vars_list.append(binary_var)
@@ -104,5 +108,8 @@ class Obstacle():
             drone_relative_position.append(drone_global_position_component - obstacle_global_position[i])
             if i >= 2:
                 break
+
+        if isinstance(self.shape, Cylinder):
+            drone_relative_position[-1] = 0
 
         return self.shape.getInverseDistance(drone_relative_position)

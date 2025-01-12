@@ -3,6 +3,7 @@ This is a test script to test the collision avoidance implementation
 """
 
 import os
+import sys
 import time
 import argparse
 from datetime import datetime
@@ -38,7 +39,9 @@ DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 48
 DEFAULT_DURATION_SEC = 12
 DEFAULT_OUTPUT_FOLDER = 'results'
-DEFAULT_COLAB = False
+DEFAULT_COLAB = False,
+DEFAULT_STATIC_OBSTACLES = True,
+DEFAULT_DYNAMIC_OBSTACLES = True
 
 def run(
         drone=DEFAULT_DRONES,
@@ -53,15 +56,19 @@ def run(
         control_freq_hz=DEFAULT_CONTROL_FREQ_HZ,
         duration_sec=DEFAULT_DURATION_SEC,
         output_folder=DEFAULT_OUTPUT_FOLDER,
-        colab=DEFAULT_COLAB
+        colab=DEFAULT_COLAB,
+        static_obstacles=DEFAULT_STATIC_OBSTACLES,
+        dynamic_obstacles=DEFAULT_DYNAMIC_OBSTACLES,
         ):
+    
+    print("sys.argv:", sys.argv) 
     #### Initialize the simulation #############################
     H = .1
     H_STEP = .05
     R = .3
 
     # Drone starting position
-    INIT_XYZS = np.array([[0, 0, 1] for i in range(num_drones)])
+    INIT_XYZS = np.array([[0, 0, 2] for i in range(num_drones)])
     INIT_RPYS = np.array([[0, 0, 0] for i in range(num_drones)])
 
     #### Create the environment ################################
@@ -118,7 +125,8 @@ def run(
         [-4, -1],
         [-3, 3]
     ])
-    environment.addStaticObstacles(15, pillar_bounds, seed=69)
+    if static_obstacles:
+        environment.addStaticObstacles(15, pillar_bounds, seed=None)
 
     # Create dynamic obstacles
     sphere_bounds = np.array([
@@ -126,9 +134,10 @@ def run(
         [-3, 3],
         [0, 4]
     ])
-    environment.addDynamicObstacles(40, sphere_bounds, dt_factor, seed=69)
+    if dynamic_obstacles:
+        environment.addDynamicObstacles(40, sphere_bounds, dt_factor, seed=None)
 
-    # environment.addSphere([1, 1, 1], 0.5, None)
+
 
     # Create box obstacle (NOT WORKING)
     # environment.addBox([-1.0, 0, 0.5], 0.5, 1, 1)
@@ -141,21 +150,24 @@ def run(
     mpc_controller = MPC(drone, drone.model, environment, environment.dt, 
                          horizon=10, 
                          num_obstacles=10,
-                         obstacle_threshold=1.5,
+                         obstacle_threshold=2,
                          obstacle_padding=0.035,
-                         weight_position=5.0,
-                         weight_obstacle_proximity=1,
+                         weight_position=2.0,
+                         weight_obstacle_proximity=0.5,
                          )
 
     pid_controller = DSLPIDControl(drone_model=DroneModel.CF2X)
 
     acceleration_gain = 0.013
     global_planner_distance = 2
+    success_threshold = 0.1
+    target_reached = False
+    solver_failed = False
 
     control_input = np.zeros((1, 4))
     drone.action = control_input
 
-    global_target_z = 1.0
+    global_target_z = 2.0
     global_target_x = -6
     global_target_y = 0.0
     global_target_yaw = 0
@@ -167,21 +179,29 @@ def run(
     environment.initGlobalTarget()
     environment.initTracker()
 
+    previous_position = np.array([0, 0, 2])
+    total_distance = 0.0
+
+    straight_line_distance = np.linalg.norm(np.array([0, 0, 2]) - global_target_state.pose[:3])
+
     progress = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
-    if len(environment.obstacles) > 0:
-        nearest_obstacle_distance = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
-    cost = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
+    nearest_obstacle_distance = np.full(int(duration_sec*env.CTRL_FREQ), -1.0)
 
     #### Run the simulation ####################################
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
 
         # Loop for multiple drones. We don't have multiple drones, but removing this is a hassle with no real benefit.
         for j in range(num_drones):
+            if i > 0:
+                previous_position = current_state.pose[:3]
+
             # Advance the simulation
             obs = environment.advanceSimulation()
 
             # Get the drone's current state
             current_state = drone.getState()
+
+            total_distance += np.linalg.norm(current_state.pose[:3] - previous_position)
 
             # Get a point in the direction of the target that isn't too far away (global planner)
             positional_error = global_target_state.pose - current_state.pose
@@ -206,10 +226,16 @@ def run(
             progress[i] = np.linalg.norm(current_state.pose[:3] - global_target_state.pose[:3])
             if len(environment.obstacles) > 0:
                 nearest_obstacle_distance[i] = environment.obstacle_distances[0]
-            # nearest_obstacle_distance[i] = np.linalg.norm(current_state.pose[:3] - environment.obstacles[0].position - environment.obstacles[0].trajectory(i * environment.dt))
+
+            if progress[i] < success_threshold:
+                target_reached = True
+                break
 
             # Get the output from MPC
-            next_input, next_state, tail, cost[i] = mpc_controller.getOutput(current_state, local_target_state)
+            next_input, next_state, tail, solver_failed = mpc_controller.getOutput(current_state, local_target_state)
+
+            if solver_failed:
+                break
 
             # Create a position for the PID controller to track based on the acceleration direction
             next_waypoint = current_state.pose + acceleration_gain * next_input
@@ -236,6 +262,9 @@ def run(
                 target_rpy=target_rpy
             )[0]
 
+        if target_reached or solver_failed:
+            break
+
         #### Printout ##############################################
         env.render()
 
@@ -253,25 +282,28 @@ def run(
     #### Plot the simulation results ###########################
     times = np.arange(len(progress)) * environment.dt
 
-    # Plot the line graph
-    plt.plot(times, progress, marker='o', label="Distance to target")
-    if len(environment.obstacles) > 0:
-        plt.plot(times, nearest_obstacle_distance, marker='o', label="Distance to nearest obstacle")
-
-    # Add labels, title, and legend
-    plt.xlabel('Time (s)')
-    plt.ylabel('Distance (m)')
-    plt.title('Metrics')
-    plt.legend()
-
-    # Show the graph
-    plt.grid()
-    plt.show()
-    
     if plot:
-        logger.plot()
+        # Plot the line graph
+        plt.plot(times[:i + 1], progress[:i + 1], marker='o', label="Distance to target")
+        if len(environment.obstacles) > 0:
+            plt.plot(times[:i + 1], nearest_obstacle_distance[:i + 1], marker='o', label="Distance to nearest obstacle")
 
-if __name__ == "__main__":
+        # Add labels, title, and legend
+        plt.xlabel('Time (s)')
+        plt.ylabel('Distance (m)')
+        plt.title('Static and dynamic obstacles')
+        plt.legend()
+
+        # Show the graph
+        plt.grid()
+        plt.show()
+
+    total_distance += np.linalg.norm(global_target_state.pose[:3] - previous_position)
+
+    return target_reached, solver_failed, progress[:i + 1], nearest_obstacle_distance[:i + 1], total_distance / straight_line_distance
+
+
+def parse_arguments():
     #### Define and parse (optional) arguments for the script ##
     parser = argparse.ArgumentParser(description='Helix flight script using CtrlAviary and DSLPIDControl')
     parser.add_argument('--drone',              default=DEFAULT_DRONES,     type=DroneModel,    help='Drone model (default: CF2X)', metavar='', choices=DroneModel)
@@ -287,6 +319,11 @@ if __name__ == "__main__":
     parser.add_argument('--duration_sec',       default=DEFAULT_DURATION_SEC,         type=int,           help='Duration of the simulation in seconds (default: 5)', metavar='')
     parser.add_argument('--output_folder',     default=DEFAULT_OUTPUT_FOLDER, type=str,           help='Folder where to save logs (default: "results")', metavar='')
     parser.add_argument('--colab',              default=DEFAULT_COLAB, type=bool,           help='Whether example is being run by a notebook (default: "False")', metavar='')
-    ARGS = parser.parse_args()
+    parser.add_argument('--static_obstacles',          default=DEFAULT_STATIC_OBSTACLES,       type=str2bool,      help='Whether to add static obstacles to the environment (default: True)', metavar='')
+    parser.add_argument('--dynamic_obstacles',          default=DEFAULT_DYNAMIC_OBSTACLES,       type=str2bool,      help='Whether to add dynamic obstacles to the environment (default: True)', metavar='')
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    ARGS = parse_arguments()
 
     run(**vars(ARGS))

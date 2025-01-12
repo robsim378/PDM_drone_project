@@ -270,8 +270,10 @@ class MPC():
         # Check solver status
         if result.solver.termination_condition == pyo.TerminationCondition.optimal:
             print("Solver found an optimal solution.")
+            solver_failed = False
         else:
             print(f"Solver terminated with condition: {result.solver.termination_condition}")
+            solver_failed = True
 
         # Save values for warm-starting
         self.save_pyomo_vars()
@@ -289,5 +291,5 @@ class MPC():
         cost = self.model.objective()
 
         # Return the extracted values
-        return u_0, x_1, x_all, cost  
+        return u_0, x_1, x_all, solver_failed
 

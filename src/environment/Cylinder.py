@@ -29,9 +29,7 @@ class Cylinder(Shape):
 
     def getInverseDistance(self, relative_position):
         """ For more details, see the docstring in Shape for this function. """
-        # return 1.0 / cp.norm(relative_position, 2)
-        # return cp.square(cp.norm(relative_position, 2) - self.radius)
-        # return cp.norm(relative_position, 2) - self.radius
+
         squared_norm = pyo.quicksum(relative_position[i]**2 for i in range(2))
         min_squared_distance = (self.radius)**2
 

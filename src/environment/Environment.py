@@ -166,15 +166,20 @@ class Environment():
         points = []
         attempts = 0
         max_attempts = 10000  # Prevent infinite loops
+        max_attempt_attempts = 20
         
-        while len(points) < num_points and attempts < max_attempts:
-            attempts += 1
-            # Generate a random point within the bounds
-            point = np.random.uniform(bounds[:, 0], bounds[:, 1])
-            
-            # Check the distance from all existing points
-            if all(np.linalg.norm(point - np.array(p)) >= min_distance for p in points):
-                points.append(point)
+        for i in range(max_attempt_attempts):
+            while len(points) < num_points and attempts < max_attempts:
+                attempts += 1
+                # Generate a random point within the bounds
+                point = np.random.uniform(bounds[:, 0], bounds[:, 1])
+                
+                # Check the distance from all existing points
+                if all(np.linalg.norm(point - np.array(p)) >= min_distance for p in points):
+                    points.append(point)
+
+            if len(points) == num_points:
+                break
         
         if len(points) < num_points:
             raise ValueError("Could not generate the required number of points within the maximum attempts.")
@@ -354,10 +359,11 @@ class Environment():
         Obstacle[] :
             All obstacles within the threshold distance
         """
-        indices = np.where(self.obstacle_distances < threshold)[0]
+        indices = np.where(np.array(self.obstacle_distances) < threshold)[0]
         if len(indices) > max_obstacles:
             indices = indices[:max_obstacles]
         result = [self.obstacles[i] for i in indices]
+        print(type(obstacle.shape) for obstacle in result)
         return result
 
 
@@ -385,7 +391,19 @@ class Environment():
 
         # Calculate the distance to all obstacles
         position = np.array(position)
-        obstacle_distances = np.linalg.norm(obstacle_positions - position, axis=1)
+
+        obstacle_distances = np.empty(len(obstacle_positions))
+
+
+        for i, obstacle in enumerate(self.obstacles):
+            if isinstance(obstacle.shape, Cylinder):
+                obstacle_distances[i] = np.linalg.norm(obstacle_positions[i][:2] - position[:2])
+            else:
+                obstacle_distances[i] = np.linalg.norm(obstacle_positions[i] - position)
+
+            if isinstance(obstacle.shape, Cylinder) or isinstance(obstacle.shape, Sphere):
+                # Calculate distance from surface rather than center (boxes are ignored, as we don't currently use them)
+                obstacle_distances[i] -= obstacle.shape.radius
 
         # Use argsort to get the indices of the obstacles, in order of distance
         sorted_indices = np.argsort(obstacle_distances)
