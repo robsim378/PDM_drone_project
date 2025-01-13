@@ -1,4 +1,4 @@
-from demos.collision_avoidance_test import run, parse_arguments
+from demos.collision_avoidance_demo import run, parse_arguments
 
 import sys
 import numpy as np

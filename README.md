@@ -4,7 +4,6 @@ This repository contains our group's implementation of the Planning and Decision
 https://github.com/user-attachments/assets/fbce4873-241b-409f-9f76-03059511abd8
 
 
-
 ## Setup instructions
 1. Make sure you have Conda up and running on your system. If not, follow the instructions found [here](https://docs.anaconda.com/miniconda/)
 2. In a separate directory from this project, clone [gym-pybullet-drones](https://github.com/utiasDSL/gym-pybullet-drones) and follow the installation instructions there.
@@ -17,12 +16,8 @@ In the end, your directory structure should look something like this:
 ```
 .
 ├── demos
-│   ├── collision_avoidance_test.py
-│   ├── drone_mixer_test.py
-│   ├── mpc_test.py
-│   ├── test2.py
-│   ├── test.py
-│   └── warehousetest.py
+│   ├── collision_avoidance_demo.py
+│   ├── metric_collection.py
 ├── README.md
 ├── requirements.txt
 ├── setup.bat
@@ -52,12 +47,12 @@ Every time you work on this project in a new shell, you must run the command `so
 ## Usage
 To run a demo of the drone flying through a simulated environment with static and dynamic obstacles, run the following command:
 ```bash
-python3 demos/collision_avoidance_test.py
+python3 demos/collision_avoidance_demo.py
 ```
 
-To run a the same demo 20 times and collect performance metrics, run this command instead:
+To run a the same demo 50 times and collect performance metrics, run this command instead:
 ```bash
-python3 demos/automation_test.py
+python3 demos/metric_collection.py
 ```
 
 
