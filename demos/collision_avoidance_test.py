@@ -300,7 +300,7 @@ def run(
 
     total_distance += np.linalg.norm(global_target_state.pose[:3] - previous_position)
 
-    return target_reached, solver_failed, progress[:i + 1], nearest_obstacle_distance[:i + 1], total_distance / straight_line_distance
+    return target_reached, solver_failed, progress[:i + 1], nearest_obstacle_distance[:i + 1], straight_line_distance / total_distance 
 
 
 def parse_arguments():

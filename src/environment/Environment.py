@@ -163,12 +163,12 @@ class Environment():
 
 
     def generate_points(self, num_points, min_distance, bounds):
-        attempts = 0
         max_attempts = 10000  # Prevent infinite loops
-        max_attempt_attempts = 20
+        max_attempt_attempts = 10000
         
         for i in range(max_attempt_attempts):
             points = []
+            attempts = 0
             while len(points) < num_points and attempts < max_attempts:
                 attempts += 1
                 # Generate a random point within the bounds
