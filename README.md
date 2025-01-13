@@ -55,6 +55,11 @@ To run a demo of the drone flying through a simulated environment with static an
 python3 demos/collision_avoidance_test.py
 ```
 
+To run a the same demo 20 times and collect performance metrics, run this command instead:
+```bash
+python3 demos/automation_test.py
+```
+
 
 ## Modules
 The structure of this project consists of three main modules that work together to control a drone. 
